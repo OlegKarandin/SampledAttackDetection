@@ -1,0 +1,19 @@
+{
+  "configurations": {
+    "debugpy : Launch": {
+      "adapter": "debugpy",
+      "filetypes": ["python"],
+      "configuration": {
+        "name": "Statistics Window",
+        "type": "python",
+        "request": "launch",
+        "cwd": "${workspaceFolder}",
+        "python": "/home/ottersome/miniconda3/envs/polimi/bin/python",
+        "stopOnEntry": true,
+        "console": "externalTerminal",
+        "debugOptions": [],
+        "program": "${workspaceFolder}/statistics_window.py"
+      }
+    }
+  }
+}
