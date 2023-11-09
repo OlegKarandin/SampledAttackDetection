@@ -1,4 +1,7 @@
+import pickle
+
 import hyperopt
+import joblib as joblib
 import numpy as np
 import pandas as pd
 import sklearn.metrics as mt
@@ -108,7 +111,7 @@ def train_classifier_XGBoost(X_train, y_train):
     for metric in ev_metric:
 
         fig, ax = plt.subplots()
-        ax.plot(x_axis, results['validation_0'][metric], label='Train')
+
         ax.plot(x_axis, results['validation_1'][metric], label='Test')
         ax.legend()
         plt.xlabel('Number of trees')
@@ -122,7 +125,10 @@ def train_classifier_XGBoost(X_train, y_train):
 
 
 def read_DDOS_dataset(selected_features):
-    df = pd.read_csv("Wednesday-workingHours.pcap_ISCX.csv", delimiter=",")
+    df = pd.read_csv(
+        "./bigdata/MachineLearningCVE/Wednesday-workingHours.pcap_ISCX.csv",
+        delimiter=",",
+    )
     new_cols = {col: col.strip() for col in df.columns}
     df.rename(columns=new_cols, inplace=True)
 
@@ -221,3 +227,6 @@ if __name__ == "__main__":
 
     accuracy_metrics(y_test, clf.predict(X_test))
 
+    # Save the model for later
+    print("Saving Model")
+    joblib.dump(clf, "detection_model.joblib")
