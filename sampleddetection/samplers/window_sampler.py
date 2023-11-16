@@ -40,7 +40,7 @@ class UniformWindowSampler:
         # Locate and Read the file
         self.logger.info("⚠️ Loading the capture file. This will likely take a while")
         self.capture = rdpcap(str(path))
-        self.first_ts = self.capture[-1].time  # First Timestamp
+        self.first_ts = self.capture[0].time  # First Timestamp
         self.last_ts = self.capture[-1].time  # Last Timestamp
         self.logger.info("✅ Loaded the capture file.")
 
@@ -70,7 +70,7 @@ class UniformWindowSampler:
             cur_packet = self.capture[cur_idx]
             # For each of these initial samples get its window.
             window_packet_list = []
-            while self.capture[cur_idx] < end_time:
+            while self.capture[cur_idx].time < end_time:
                 # Append Packet
                 assert hasattr(  # TODO: remove this if it never really gets called.
                     self.capture[cur_idx], "time"

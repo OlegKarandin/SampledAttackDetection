@@ -6,7 +6,10 @@ Application project to test sampled algorithm on DDOS Detection.
 
 1. `./sampleddetection/` package to keep all relevant utilities organized.
 2. `./scripts/` any helper scripts that are not part of the main program
-3. `./main/` collection of scripts that constitute the main points of this project.
+
+Scritps:
+
+1. `./windowed/` Entry point for sample experiments
 
 # Additional Requirements
 
