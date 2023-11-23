@@ -28,7 +28,7 @@ def get_flows(packets: List[Packet]) -> Dict[Tuple, Flow]:
     packets_count = 0
 
     for packet in packets:
-        # Dont accept packets without this transport protocols(because stats depend on these)
+        # Dont accept packets without these transport protocols(because stats depend on these)
         # Count disambiguates between UDP packet clusters that are too distant in time. Makes them into new flows
         count = 0
         if "TCP" not in packet and "UDP" not in packet:

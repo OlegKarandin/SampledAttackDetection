@@ -114,6 +114,7 @@ if __name__ == "__main__":
     limiting_counter = 0
 
     performance_matrix = np.empty((len(scale_iterations), len(scale_iterations)))
+
     for window_length in scale_iterations:
         for window_skip in scale_iterations:
             window_iterator = UniformWindowSampler(
