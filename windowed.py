@@ -19,6 +19,8 @@ from sampleddetection.samplers.window_sampler import UniformWindowSampler
 from sampleddetection.statistics.window_statistics import flow_to_stats, get_flows
 from sampleddetection.utils import setup_logger
 
+# Set up all random seeds to be the same
+
 
 def get_args() -> argparse.Namespace:
     argparsr = argparse.ArgumentParser()
@@ -63,7 +65,6 @@ if __name__ == "__main__":
     ##############################
     # Init Values
     ##############################
-
     logger = setup_logger("main", logging.INFO)
 
     args = sanitize_args(get_args())
@@ -98,7 +99,7 @@ if __name__ == "__main__":
     # window_skip=args.window_skip,  # Seconds
     # window_length=args.window_skip,
     # )
-    scale_iterations = np.logspace(-4, 4, 10, dtype=float)
+    scale_iterations = np.logspace(-1, 4, 10, dtype=float)
     logger.info(f"Using iterations f{scale_iterations}")
 
     ##############################
@@ -123,6 +124,7 @@ if __name__ == "__main__":
                 window_length=window_length,
                 amount_windows=100,
             )
+
             # Keep Dictionary of Stats Across Windows
             stat_logger = dict.fromkeys(
                 {"accuracy", "precision", "recall", "f1score"}, []
