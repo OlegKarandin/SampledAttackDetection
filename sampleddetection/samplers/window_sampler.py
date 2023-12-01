@@ -14,11 +14,11 @@ from tqdm import tqdm
 from ..utils import setup_logger
 
 # import PcaketList
-# MAX_MEM = 4e9  # GB This is as mcuh as we want in ram at once
+MAX_MEM = 15e9  # GB This is as mcuh as we want in ram at once
 # MAX_MEM = 250e6  # GB This is as mcuh as we want in ram at once
 # MAX_MEM = 100e6  # GB This is as mcuh as we want in ram at once
 # MAX_MEM = 2 ** (26.575)
-MAX_MEM = 2 ** (23.25)
+# MAX_MEM = 2 ** (23.25)
 
 
 class CaptureReader:
