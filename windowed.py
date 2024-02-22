@@ -138,8 +138,10 @@ if __name__ == "__main__":
                 features = features[features_names]
 
                 # Get Stats
+                # TODO :
 
                 # Pick up the right stats
+                # TODO:
 
                 # Add to average
             # performance_matrix[scale_i,scale_j] =
