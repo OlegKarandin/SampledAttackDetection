@@ -22,7 +22,74 @@ MAX_MEM = 15e9  # GB This is as mcuh as we want in ram at once
 
 
 class CaptureReader:
+    def __init__(self, scr_path: Path):
+        assert str(scr_path).endswith(
+            ".pcap"
+        ), f"Provided path to capture is not a pcap file"
+        self.logger = setup_logger(
+            "CaptureReader",
+        )
+        self.lf_location = src_path
+        self.cur_cptfile_ptr = PacketList()
+        self.packet_list = []
+        self.last_sniff_time = 0.0
+        self.first_sniff_time = 0.0
+        self.length = 0
+
+    def _load_data(
+        self,
+    ):
+        pcap_rdr = PcapReader(str(self.lf_location))
+        size_of_file = 0
+        # CHECK: Json is not letting me dump `Decimal` types which
+        #   packet.time is returning. Im afraid this might get in the way of precision.
+        #   To get this draft finished Ill let it go for now but be careful
+        #   Ill mark the two lines of relevant with "DTF"(decimal-to-float)
+
+        packet = pcap_rdr.read_packet()
+        self.first_sniff_time = float(packet.time)  # CHECK: DTF
+        self.logger.info("Attempting to load monolithic file")
+        last_packet = packet
+
+        t_bar = tqdm(desc="Loading Monolithic File (GB)", leave=True, position=0)
+        while packet != None:
+            self.packet_list.append(packet)
+            size_of_file += len(packet)
+            t_bar.update(len(packet) / 10e9)
+            last_packet = packet
+            self.length += 1
+            try:
+                packet = pcap_rdr.read_packet()
+            except EOFError:  # EOF
+                break
+
+        self.last_sniff_time = float(last_packet.time)
+        self.logger.info(f"Loaded the monolithic file with size {size_of_file} GB")
+
+    # TODO: likewise here
+    def __len__(self) -> int:
+        assert len(self.packet_list) != 0, "No currently loaded partition"
+        return self.length
+
+    def __getitem__(self, idx: int) -> Packet:  # CHECK: if I can use floats here
+        """
+        Retrieves item based on index
+        Make sure you have partitioned
+        """
+        assert (
+            len(self.packet_list) != 0
+        ), "Capture file is not loaded. Make sure you partition."
+        return self.packet_list[idx]
+
+
+# TODO: You might want to create a parent class for these two in case you use them interchangeably.
+class CheapCaptureReader:
     """
+    Warning: I can't recommend the use of this class since its  I/O operations will be significantly
+    more taxing to total execution time when compared to loading everything at once.
+    Regardless if your memory constraints are tight it might be helpful.
+
+
     Class will take a large pcap file and partition it into MAX_MEM pcap files
     It will also enable use to give it a time, find the corresopnding file and load it to memory
 
@@ -243,10 +310,8 @@ class UniformWindowSampler:
         self.window_length = window_length
 
         # Structure doing most of the heavy lifting
-        self.caprdr = CaptureReader(
-            Path(path), Path(partition_loc)  # type:ignore CHECK:
-        )
-        self.caprdr.partition()
+        self.caprdr = CaptureReader(Path(path))
+        # self.caprdr.partition()
 
         # Locate and Read the file
         self.logger.info("⚠️ Loading the capture file. This will likely take a while")
@@ -269,9 +334,6 @@ class UniformWindowSampler:
 
         # Chose random times with this duration
         np.random.seed(42)
-        # random_times = np.random.uniform( #TOREM:
-        # low=self.first_ts, high=self.last_ts, size=self.amount_windows
-        # )
         windows_list = []
         # Do Binary Search on the capture to find the initial point for each packet
 
@@ -282,7 +344,6 @@ class UniformWindowSampler:
             position=0,
         )
 
-        # for win_start_time in random_times: #TOREM:
         while len(windows_list) < self.amount_windows:
             win_start_time = np.random.uniform(
                 low=self.first_ts, high=self.last_ts, size=1
