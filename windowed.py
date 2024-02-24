@@ -13,10 +13,12 @@ from pathlib import Path
 import joblib
 import numpy as np
 import sklearn.metrics as mt
+from tqdm import tqdm
 
 # %% Import parsers
 from sampleddetection.samplers.window_sampler import UniformWindowSampler
-from sampleddetection.statistics.window_statistics import flow_to_stats, get_flows
+from sampleddetection.statistics.window_statistics import (flow_to_stats,
+                                                           get_flows)
 from sampleddetection.utils import setup_logger
 
 # Set up all random seeds to be the same
@@ -61,10 +63,32 @@ def sanitize_args(args: argparse.Namespace):
     return args
 
 
+def training_loop(episodes:int = 1000, 
+                  episode_length:int,
+                  sampling_rate_endpoints: List[float, float]
+                  sampling_interval_endpoints:  List[float, float]
+                  ):
+    """
+    Problems to solve. How to
+    """
+    # Start Environment
+    episodes_bar = tqdm(range(episodes), desc="Training over episodes")
+    for episode in range(episodes):
+        for el in range(episode_length):
+            # Get Initial State
+            
+
+
+    # Pick a place to start at random.
+
+    # Just let the model decide its own training-rate paradigm.
+
+
 if __name__ == "__main__":
     ##############################
     # Init Values
     ##############################
+
     logger = setup_logger("main", logging.INFO)
 
     args = sanitize_args(get_args())
@@ -105,7 +129,8 @@ if __name__ == "__main__":
     ##############################
     # Load Pre-Trained Model
     ##############################
-    model = joblib.load(args.model_path)
+    # CHECK: I't can't be a good idea to use a model trained differently for testing here
+    # model = joblib.load(args.model_path)
 
     ##############################
     # Run Simulation
@@ -135,7 +160,7 @@ if __name__ == "__main__":
                 features = flow_to_stats(flows)
 
                 # Clean features
-                features = features[features_names]
+                latent_features = features[features_names]  # type_ignore
 
                 # Get Stats
                 # TODO :
