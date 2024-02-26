@@ -15,6 +15,7 @@ import numpy as np
 import sklearn.metrics as mt
 from tqdm import tqdm
 
+from sampleddetection.rl.model import Environment
 # %% Import parsers
 from sampleddetection.samplers.window_sampler import UniformWindowSampler
 from sampleddetection.statistics.window_statistics import (flow_to_stats,
@@ -62,8 +63,21 @@ def sanitize_args(args: argparse.Namespace):
     # TODO: More stuff for window size and the like
     return args
 
+def training_loop(model,
+                  uws: UniformWindowSampler, 
+                  num_epsidodes: int,
+                  episode_lengthL int):
+    ep_bar = tqdm(total=num_epsidodes, desc="Episode Number")
+    for e in ep_bar():
+        # Find a Place in the Environment
+
+
+
+
+
 
 def training_loop(episodes:int = 1000, 
+                  environment: Environment,
                   episode_length:int,
                   sampling_rate_endpoints: List[float, float]
                   sampling_interval_endpoints:  List[float, float]
@@ -135,6 +149,7 @@ if __name__ == "__main__":
     ##############################
     # Run Simulation
     ##############################
+    
 
     # %% Create Statistical Windows
     limiting_counter = 0

@@ -325,7 +325,7 @@ class UniformWindowSampler:
 
     def _create_window_samples(self):
         """
-        Assuming properly loaded capture file, will sample from it uniformly some windows
+        Assuming properly loaded capture file, will uniformly sample from it some windows
         Disclaimer:
             I will not sample *in array* because I assume the distribution of packets across time will be very uneven.
             Thus I sample in time.
