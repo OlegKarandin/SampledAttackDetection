@@ -1,5 +1,7 @@
 from enum import Enum
-from typing import Any
+from typing import Any, NamedTuple
+
+from scapy.all import Packet
 
 from ..utils import get_statistics
 from . import constants
@@ -15,14 +17,13 @@ from .packet_time import PacketTime
 class Flow:
     """This class summarizes the values of the features of the network flows"""
 
-    def __init__(self, packet: Any, direction: Enum):
+    def __init__(self, packet: Any, direction: PacketDirection):
         """This method initializes an object from the Flow class.
 
         Args:
             packet (Any): A packet from the network.
             direction (Enum): The direction the packet is going ove the wire.
         """
-
         (
             self.dest_ip,
             self.src_ip,

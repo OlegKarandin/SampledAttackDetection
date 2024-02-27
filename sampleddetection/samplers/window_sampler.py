@@ -4,12 +4,17 @@ from datetime import datetime
 from math import ceil
 from pathlib import Path
 from random import shuffle
-from typing import Tuple
+from typing import Tuple, Union
 
 import numpy as np
+import torch
 from scapy.all import Packet, PcapReader, rdpcap, wrpcap
 from scapy.plist import PacketList
 from tqdm import tqdm
+
+from sampleddetection.common_lingo import RelevantStats
+from sampleddetection.datastructures.context.packet_flow_key import get_packet_flow_key
+from sampleddetection.datastructures.flowsession import SampledFlowSession
 
 from ..utils import setup_logger
 
@@ -282,6 +287,55 @@ class CheapCaptureReader:
         exit(-1)  # HACK: ugly
 
 
+class DynamicWindowSampler:
+    def __init__(self, path: str):
+        assert Path(path).exists()
+        self.logger = setup_logger(__class__.__name__, logging.DEBUG)
+
+        # To be filled later
+        self.window_skip = 0.0
+        self.window_length = 0.0
+
+        self.logger.info(f"Loading the capture file {path}")
+        self.caprdr = CaptureReader(Path(path))
+
+    def sample_w_freq_n_win(
+        self, initial_time: float, min_num_flows: int
+    ) -> SampledFlowSession:
+        # OPTIM: so much to do here. We might need to depend on a c++ library to do this.
+        """
+        Will create `samples` samples from which to form current statistics
+        """
+
+        idx_curpack = binary_search(self.caprdr, initial_time)
+        cur_num_flows = 0
+
+        cur_time = initial_time
+        cur_left_limit = initial_time
+        cur_right_limit = initial_time + self.window_length
+
+        # Create New Flow Session
+        flow_session = SampledFlowSession()
+
+        while cur_num_flows < min_num_flows:
+            # Keep going through packets
+            cur_packet = self.caprdr[idx_curpack]
+            cur_time = cur_packet.time
+
+            flow_session.on_packet_received(cur_packet, cur_left_limit, cur_right_limit)
+
+            cur_num_flows = flow_session.num_flows()
+            idx_curpack += 1
+            # TODO: check if we hit the limits of the pcap file. If so we may want to start again
+
+            # Entrando aca que pedos
+            if cur_time > cur_right_limit:
+                cur_left_limit = cur_right_limit + self.window_skip
+                cur_right_limit = cur_left_limit + self.window_length
+
+        return flow_session
+
+
 class UniformWindowSampler:
     def __init__(
         self,
@@ -323,6 +377,10 @@ class UniformWindowSampler:
         self.logger.info("Creating window samples")
         self.windows_list = self._create_window_samples()
 
+    def set_new_sampling_params(self, window_skip, window_length):
+        self.window_skip = window_skip
+        self.window_length = window_length
+
     def _create_window_samples(self):
         """
         Assuming properly loaded capture file, will uniformly sample from it some windows
@@ -348,7 +406,7 @@ class UniformWindowSampler:
             win_start_time = np.random.uniform(
                 low=self.first_ts, high=self.last_ts, size=1
             )[0]
-            cur_idx = self._binary_search(self.caprdr, win_start_time)
+            cur_idx = binary_search(self.caprdr, win_start_time)
             win_end_time = win_start_time + self.window_length
 
             # cur_packet = self.capture[cur_idx]
@@ -389,35 +447,13 @@ class UniformWindowSampler:
         # TODO: Ensure good balance between labels.
         return windows_list
 
-    def _binary_search(self, cpt_rdr: CaptureReader, target_time: float):
+    def get_first_packet_in_window(self, init_pos, win_length):
         """
-        Given a capture and a target time, will return the index of the first packet
-        that is after the target time
+        Will look forward in time for win_length units of time from init_pos.
+        Will then take the first packet it finds
+        TODO: maybe implement this if we find it necessary
         """
-        # Initialize variables
-        low: int = 0
-        high: int = len(cpt_rdr)
-        mid: int = 0
-        # self.logger.debug(f"The initial high is  {high}")
-
-        # Do binary search
-        # while high > low:
-        while (high - low) != 1:
-            mid = ceil(
-                (high + low) / 2
-            )  # CHECK: It *should* be ceil. Check nonetheless
-            if target_time > float(cpt_rdr[mid].time):
-                low = mid
-            else:
-                high = mid
-        # Once we have two closest elements we check the closes
-        # Argmax it
-        if abs(target_time - float(cpt_rdr[low].time)) < abs(
-            target_time - float(cpt_rdr[high].time)
-        ):
-            return low
-        else:
-            return high
+        pass
 
     def uniform_window_sample():
         """
@@ -431,3 +467,39 @@ class UniformWindowSampler:
         shuffle(self.windows_list)
         for window in self.windows_list:
             yield window
+
+
+def binary_search(cpt_rdr: CaptureReader, target_time: float):
+    """
+    Given a capture and a target time, will return the index of the first packet
+    that is after the target time
+    """
+    # Initialize variables
+    # self.logger.debug(f"The initial high is  {high}")
+    low, high = binary_till_two(target_time, cpt_rdr)
+    # Once we have two closest elements we check the closes
+    # Argmax it
+    if abs(target_time - float(cpt_rdr[low].time)) < abs(
+        target_time - float(cpt_rdr[high].time)
+    ):
+        return low
+    else:
+        return high
+
+
+def binary_till_two(target_time: float, cpt_rdr: CaptureReader):
+    """
+    Will do binary search until only two elements remain
+    """
+    low: int = 0
+    high: int = len(cpt_rdr)
+    mid: int = 0
+    # Do binary search
+    # while high > low:
+    while (high - low) != 1:
+        mid = ceil((high + low) / 2)  # CHECK: It *should* be ceil. Check nonetheless
+        if target_time > float(cpt_rdr[mid].time):
+            low = mid
+        else:
+            high = mid
+    return low, high

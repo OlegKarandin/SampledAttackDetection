@@ -4,8 +4,8 @@ statitics relevant to machine learning algorithms
 """
 from typing import Dict, List, Tuple
 
-import pyshark
-from pyshark.packet.packet import Packet
+# from pyshark.packet.packet import Packet
+from scapy.all import Packet
 
 # from cicflowmeter.features.context.packet_direction import PacketDirection
 from sampleddetection.datastructures.context.packet_direction import PacketDirection

@@ -1,35 +1,96 @@
-from typing import List, NamedTuple
+from typing import List
 
 import torch
 import torch.nn as nn
 
-from sampleddetection.samplers.window_sampler import UniformWindowSampler
+from sampleddetection.common_lingo import Action, State
+from sampleddetection.datastructures.flowsession import SampledFlowSession
+from sampleddetection.samplers.window_sampler import (
+    DynamicWindowSampler,
+    UniformWindowSampler,
+)
+
+from ..utils import setup_logger
 
 
-class State(NamedTuple):
-    time_point : float
-    window_length : float
-    cur_frequency : float
-
-class Action(NamedTuple):
-    window_length_delta : float
-    frequency_delta : float
-
-def Environment():
+class Environment:
     """
     State is defined as:
         A point in time together with current window size and current frequency
     """
 
+    # Hyperparameters
+    WINDOW_SKIP_RANGE = [1 / 1e-6, 1 / 1e0]
+    WINDOW_LENGTH_RANGE = [1e-6, 1e0]
+    # TODO: Implement below
+    AMOUNT_OF_SAMPLES_PER_ACTION = 1  # Where action means selection of frequency/window
+    PREVIOUS_AMNT_SAMPLES = 12
+    FLOW_MEMORY = 12  # Per-flow packet budget
+    MIN_FLOW_MEMORY = 30  # Maximum amount of flows to store.
+
     def __init__(
         self,
-        sampler: UniformWindowSampler,
-        desired_features : List[string]):
-
+        sampler: DynamicWindowSampler,
+        simultaneous_enviroments: int,
+    ):
         self.sampler = sampler
+        self.M = simultaneous_enviroments
+        self.logger = setup_logger(self.__class__.__name__)
 
-    def step(self,cur_state: State, action: Action) :
-        # 
-        
+    def step(self, cur_state: State, action: Action) -> torch.Tensor:
+        # Get current positions
+        new_freq = cur_state.cur_frequency + action.frequency_delta
+        new_win = cur_state.window_length + action.window_length_delta
+        new_freq = max(
+            self.WINDOW_SKIP_RANGE[0], min(self.WINDOW_SKIP_RANGE[1], new_freq)
+        )
+        new_win = max(
+            self.WINDOW_LENGTH_RANGE[0], min(self.WINDOW_LENGTH_RANGE[1], new_win)
+        )
 
-    
+        # Calculate Rewards
+        new_state = self.sampler  # TODO: finish this
+
+        return torch.Tensor([])  # TOREM: remove this in favor of something meaningful
+
+    def reset(self) -> List[State]:
+        # Find different simulatenous positions to draw from
+        min_time, max_time = (
+            self.sampler.caprdr.first_sniff_time,
+            self.sampler.caprdr.last_sniff_time,
+        )
+
+        assert min_time != max_time, "Cap Reader not initialized Properly"
+
+        # Select M distinct staring positions
+        # TODO: Ensure we are not selecting to far into the day where no samples are possible.
+        # ( We could also just leave it as noise for now >:])
+        starting_times = torch.rand(self.M) * (max_time - min_time) + min_time
+        self.logger.debug(f"Staring times are {starting_times}")
+
+        # Staring Frequencies
+        starting_frequencies = (
+            torch.rand(self.M) * (self.WINDOW_SKIP_RANGE[1] - self.WINDOW_SKIP_RANGE[0])
+            + self.WINDOW_SKIP_RANGE[0]
+        )
+        waiting_windows = (
+            torch.rand(self.M)
+            * (self.WINDOW_LENGTH_RANGE[1] - self.WINDOW_LENGTH_RANGE[0])
+            + self.WINDOW_LENGTH_RANGE[0]
+        )
+
+        # Create New Flow Session
+        states: List[State] = []
+        for i in range(self.M):
+            states.append(
+                State(
+                    time_point=starting_times[i].item(),
+                    cur_frequency=starting_frequencies[i].item(),
+                    window_length=waiting_windows[i].item(),
+                    flow_sesh=self.sampler.sample_w_freq_n_win(
+                        starting_times[i].item(), self.MIN_FLOW_MEMORY
+                    ),
+                )
+            )
+
+        return states
