@@ -31,7 +31,7 @@ def get_packet_flow_key(packet: Packet, direction: PacketDirection) -> tuple:
     elif "UDP" in packet:
         protocol = "UDP"
     else:
-        raise Exception("Only TCP protocols are supported.")
+        raise Exception("Only IP Packets are supported.")
 
     ip = "IPv6" if "IPv6" in packet else "IP"
 
@@ -48,3 +48,21 @@ def get_packet_flow_key(packet: Packet, direction: PacketDirection) -> tuple:
         dest_port = packet[protocol].sport
 
     return dest_ip, src_ip, src_port, dest_port
+
+
+def get_simple_tuple(packet: Packet):
+    if "TCP" in packet:
+        protocol = "TCP"
+    elif "UDP" in packet:
+        protocol = "UDP"
+    else:
+        raise Exception("Only IP protocols are supported")
+
+    ip = "IPv6" if "IPv6" in packet else "IP"
+
+    return (
+        packet[ip].src,
+        packet[ip].dst,
+        packet[protocol].sport,
+        packet[protocol].dport,
+    )

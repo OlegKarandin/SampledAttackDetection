@@ -9,17 +9,22 @@ import json
 import logging
 import pickle
 from pathlib import Path
+from typing import List
 
+import debugpy
 import joblib
 import numpy as np
 import sklearn.metrics as mt
 from tqdm import tqdm
 
 from sampleddetection.rl.model import Environment
+
 # %% Import parsers
-from sampleddetection.samplers.window_sampler import UniformWindowSampler
-from sampleddetection.statistics.window_statistics import (flow_to_stats,
-                                                           get_flows)
+from sampleddetection.samplers.window_sampler import (
+    DynamicWindowSampler,
+    UniformWindowSampler,
+)
+from sampleddetection.statistics.window_statistics import flow_to_stats, get_flows
 from sampleddetection.utils import setup_logger
 
 # Set up all random seeds to be the same
@@ -44,6 +49,12 @@ def get_args() -> argparse.Namespace:
         default="./models/detection_model.joblib",
         help="Length of each window",
     )
+    argparsr.add_argument(
+        "--debug",
+        "-d",
+        action="store_true",
+        default=False,
+    )
 
     return argparsr.parse_args()
 
@@ -63,35 +74,21 @@ def sanitize_args(args: argparse.Namespace):
     # TODO: More stuff for window size and the like
     return args
 
-def training_loop(model,
-                  uws: UniformWindowSampler, 
-                  num_epsidodes: int,
-                  episode_lengthL int):
-    ep_bar = tqdm(total=num_epsidodes, desc="Episode Number")
-    for e in ep_bar():
-        # Find a Place in the Environment
 
-
-
-
-
-
-def training_loop(episodes:int = 1000, 
-                  environment: Environment,
-                  episode_length:int,
-                  sampling_rate_endpoints: List[float, float]
-                  sampling_interval_endpoints:  List[float, float]
-                  ):
+def training_loop(
+    environment: Environment,
+    episode_length: int,
+    episodes: int = 1000,
+):
     """
     Problems to solve. How to
     """
     # Start Environment
-    episodes_bar = tqdm(range(episodes), desc="Training over episodes")
+    # episodes_bar = tqdm(range(episodes), desc="Training over episodes")
     for episode in range(episodes):
-        for el in range(episode_length):
-            # Get Initial State
-            
-
+        cur_state = environment.reset()
+        exit()  # TOREM: once `reset()` works well
+        # Get Initial State
 
     # Pick a place to start at random.
 
@@ -103,9 +100,15 @@ if __name__ == "__main__":
     # Init Values
     ##############################
 
-    logger = setup_logger("main", logging.INFO)
+    logger = setup_logger("MAIN", logging.INFO)
 
     args = sanitize_args(get_args())
+
+    if args.debug:
+        logger.info("Waiting for client to connect to port 42019")
+        debugpy.listen(42019)
+        debugpy.wait_for_client()
+        logger.info("Client connected, debugging...")
 
     features_names = [
         "Fwd Packet Length Max",
@@ -149,7 +152,11 @@ if __name__ == "__main__":
     ##############################
     # Run Simulation
     ##############################
-    
+    dynamic_sampler = DynamicWindowSampler(args.pcap_path)
+    environment = Environment(dynamic_sampler, 2)
+    training_loop(environment, 12)
+
+    exit()
 
     # %% Create Statistical Windows
     limiting_counter = 0

@@ -4,6 +4,7 @@ from datetime import datetime
 from math import ceil
 from pathlib import Path
 from random import shuffle
+from time import time
 from typing import Tuple, Union
 
 import numpy as np
@@ -13,7 +14,8 @@ from scapy.plist import PacketList
 from tqdm import tqdm
 
 from sampleddetection.common_lingo import RelevantStats
-from sampleddetection.datastructures.context.packet_flow_key import get_packet_flow_key
+from sampleddetection.datastructures.context.packet_flow_key import \
+    get_packet_flow_key
 from sampleddetection.datastructures.flowsession import SampledFlowSession
 
 from ..utils import setup_logger
@@ -27,8 +29,8 @@ MAX_MEM = 15e9  # GB This is as mcuh as we want in ram at once
 
 
 class CaptureReader:
-    def __init__(self, scr_path: Path):
-        assert str(scr_path).endswith(
+    def __init__(self, src_path: Path):
+        assert str(src_path).endswith(
             ".pcap"
         ), f"Provided path to capture is not a pcap file"
         self.logger = setup_logger(
@@ -41,6 +43,8 @@ class CaptureReader:
         self.first_sniff_time = 0.0
         self.length = 0
 
+        self._load_data()
+
     def _load_data(
         self,
     ):
@@ -51,16 +55,25 @@ class CaptureReader:
         #   To get this draft finished Ill let it go for now but be careful
         #   Ill mark the two lines of relevant with "DTF"(decimal-to-float)
 
-        packet = pcap_rdr.read_packet()
+        # packet = pcap_rdr.read_packet()
+        start_time = time()
+        #packet_list = pcap_rdr.read_all()
+        # TODO: Place back the packet thing.
+        elapsed_time = time() - start_time
+        print(f"Loading this file took {elapsed_time}")
+
         self.first_sniff_time = float(packet.time)  # CHECK: DTF
         self.logger.info("Attempting to load monolithic file")
         last_packet = packet
 
         t_bar = tqdm(desc="Loading Monolithic File (GB)", leave=True, position=0)
+        pckt_cnt = 0
         while packet != None:
             self.packet_list.append(packet)
             size_of_file += len(packet)
-            t_bar.update(len(packet) / 10e9)
+            pckt_cnt += 1
+            if pckt_cnt % 1000 == 0:
+                t_bar.update(size_of_file / 10e9)
             last_packet = packet
             self.length += 1
             try:
@@ -87,8 +100,44 @@ class CaptureReader:
         return self.packet_list[idx]
 
 
+class LowMemCaptureReader:
+    def __init__(self, pcap_path: Path, mdata_path: Path):
+        """
+        Parameters
+        ~~~~~~~~~~
+            mdata_path : Path to store mata data after having a pass over pcap file and forming an index
+        """
+        # Parameters
+        self.pcap_path = pcap_path
+        self.mdata_path = mdata_path 
+        self.first_sniff_time = 0.0
+        self.last_sniff_time = 0.0
+
+        # Check if the cache file exists and load if true
+        if self.mdata_path.exists():
+            self.timestamp_json =  json.load(self.mdata_path.open())
+        elif self.pcap_path.exists() and pcap_path.__str__.endswith(".pcap"):
+            # Create the File itself.
+            self._create_partition
+
+        else:
+            raise ValueError("The provided pcap file does not exist")
+
+
+        # Otherwise create partition yourself.
+
+    def _create_indexing_file(self, packet_reader: PcapReader ):
+        # Pass through the entire file. taking note of the byte offsets of every packet and storing them 
+
+        
+        # Store also the timestamp for seeking later
+        
+
+    def _place_packlet(self, title)
+
+
 # TODO: You might want to create a parent class for these two in case you use them interchangeably.
-class CheapCaptureReader:
+class PartitionCaptureReader:
     """
     Warning: I can't recommend the use of this class since its  I/O operations will be significantly
     more taxing to total execution time when compared to loading everything at once.
