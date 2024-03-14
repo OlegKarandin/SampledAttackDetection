@@ -1,7 +1,8 @@
-from typing import List
+from typing import List, Union
 
 import torch
 import torch.nn as nn
+from torch import Tensor
 
 from sampleddetection.common_lingo import Action, State
 from sampleddetection.datastructures.flowsession import SampledFlowSession
@@ -26,7 +27,7 @@ class Environment:
     AMOUNT_OF_SAMPLES_PER_ACTION = 1  # Where action means selection of frequency/window
     PREVIOUS_AMNT_SAMPLES = 12
     FLOW_MEMORY = 12  # Per-flow packet budget
-    MIN_FLOW_MEMORY = 30  # Maximum amount of flows to store.
+    MIN_FLOW_MEMORY = 9999999999  # Maximum amount of flows to store.
 
     def __init__(
         self,
@@ -53,7 +54,7 @@ class Environment:
 
         return torch.Tensor([])  # TOREM: remove this in favor of something meaningful
 
-    def reset(self) -> List[State]:
+    def reset(self, starting_times: Union[None, Tensor] = None) -> List[State]:
         # Find different simulatenous positions to draw from
         min_time, max_time = (
             self.sampler.caprdr.first_sniff_time,
@@ -65,7 +66,8 @@ class Environment:
         # Select M distinct staring positions
         # TODO: Ensure we are not selecting to far into the day where no samples are possible.
         # ( We could also just leave it as noise for now >:])
-        starting_times = torch.rand(self.M) * (max_time - min_time) + min_time
+        if starting_times == None:
+            starting_times = torch.rand(self.M) * (max_time - min_time) + min_time
         self.logger.debug(f"Staring times are {starting_times}")
 
         # Staring Frequencies

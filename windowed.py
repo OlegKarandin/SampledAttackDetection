@@ -15,19 +15,19 @@ import debugpy
 import joblib
 import numpy as np
 import sklearn.metrics as mt
+import torch
 from tqdm import tqdm
 
 from sampleddetection.rl.model import Environment
-
 # %% Import parsers
-from sampleddetection.samplers.window_sampler import (
-    DynamicWindowSampler,
-    UniformWindowSampler,
-)
-from sampleddetection.statistics.window_statistics import flow_to_stats, get_flows
+from sampleddetection.samplers.window_sampler import (DynamicWindowSampler,
+                                                      UniformWindowSampler)
+from sampleddetection.statistics.window_statistics import (flow_to_stats,
+                                                           get_flows)
 from sampleddetection.utils import setup_logger
 
 # Set up all random seeds to be the same
+logger = setup_logger("MAIN", logging.INFO)
 
 
 def get_args() -> argparse.Namespace:
@@ -35,9 +35,10 @@ def get_args() -> argparse.Namespace:
     argparsr.add_argument(
         "--pcap_path",
         type=str,
-        default="./bigdata/Wednesday-WorkingHours.pcap",
-        help="Path to the .pcap file",
+        help="(Deprecated use csv_path instead) Path to the .pcap file",
+        required=False
     )
+    argparsr.add_argument("--csv_path", )
     argparsr.add_argument(
         "--window_skip", type=float, default=1.0, help="Time to skip between windows"
     )
@@ -55,6 +56,13 @@ def get_args() -> argparse.Namespace:
         action="store_true",
         default=False,
     )
+
+    # Warn that the pcap_path argument is deprecated and should not be used unless sure
+    if "--pcap_path" in argparsr.parse_args():
+        logger.warn(
+            "🛑 WARNING: The --pcap_path argument is deprecated and should not be used unless you are sure of what you are doing."
+        )
+
 
     return argparsr.parse_args()
 
@@ -86,7 +94,7 @@ def training_loop(
     # Start Environment
     # episodes_bar = tqdm(range(episodes), desc="Training over episodes")
     for episode in range(episodes):
-        cur_state = environment.reset()
+        cur_state = environment.reset(torch.Tensor([1500000000]))
         exit()  # TOREM: once `reset()` works well
         # Get Initial State
 
@@ -100,7 +108,6 @@ if __name__ == "__main__":
     # Init Values
     ##############################
 
-    logger = setup_logger("MAIN", logging.INFO)
 
     args = sanitize_args(get_args())
 
@@ -152,7 +159,7 @@ if __name__ == "__main__":
     ##############################
     # Run Simulation
     ##############################
-    dynamic_sampler = DynamicWindowSampler(args.pcap_path)
+    dynamic_sampler = DynamicWindowSampler(args.)
     environment = Environment(dynamic_sampler, 2)
     training_loop(environment, 12)
 

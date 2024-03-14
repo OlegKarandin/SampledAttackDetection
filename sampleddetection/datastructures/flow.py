@@ -255,6 +255,7 @@ class Flow:
 
         """
         if (current_time - self.last_active) > constants.ACTIVE_TIMEOUT:
+            # Creates a new subflow
             duration = abs(float(self.last_active - self.start_active))
             if duration > 0:
                 self.active.append(1e6 * duration)
