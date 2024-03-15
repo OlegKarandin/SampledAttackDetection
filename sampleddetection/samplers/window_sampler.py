@@ -5,9 +5,10 @@ from math import ceil
 from pathlib import Path
 from random import shuffle
 from time import time
-from typing import Tuple, Union
+from typing import List, Tuple, Union
 
 import numpy as np
+import pandas as pd
 import torch
 from scapy.all import Packet, PcapReader, rdpcap, wrpcap
 from scapy.plist import PacketList
@@ -33,18 +34,51 @@ MAX_MEM = 15e9  # GB This is as mcuh as we want in ram at once
 
 
 class DynamicWindowSampler:
-    def __init__(self, path: str):
-        assert Path(path).exists()
+    """
+    WARNING: THIS DOES NOT TAKE PCAP FILES
+    """
+
+    NUM_WINDOWS_PER_SAMPLE = 1
+
+    def __init__(self, path_str: str, window_skip: float, window_length: float):
+        path = Path(path_str)
+        assert path.exists() and path_str.endswith(
+            ".csv"
+        ), "Path does not exist or is invalid"
         self.logger = setup_logger(__class__.__name__, logging.DEBUG)
 
-        # To be filled later
-        self.window_skip = 0.0
-        self.window_length = 0.0
+        self.logger.info(f"Loading the capture file {path_str}")
+        if not path.exists():
+            raise ValueError(f"Provided path {path} does not exist")
 
         self.logger.info(f"Loading the capture file {path}")
         self.caprdr = CSVReader(Path(path))
 
-    def sample_w_freq_n_win(
+    def sample(
+        self, initial_time: float, window_skip: float, window_length: float
+    ) -> pd.DataFrame:
+        packet_list = []
+        cur_time = (
+            initial_time + window_skip
+        )  # Assumes that we will start `window_skip` after inference
+        next_stop = cur_time + window_length
+
+        idx_curpack = binary_search_upper(self.caprdr, initial_time)
+        for _ in range(self.NUM_WINDOWS_PER_SAMPLE):
+            while cur_time < next_stop:
+                curpack = self.caprdr[idx_curpack]
+                cur_time = curpack["timestamp"]
+                if cur_time < next_stop:
+                    packet_list.append(curpack)
+
+                idx_curpack += 1
+
+            cur_time = next_stop + window_skip
+            next_stop = cur_time + window_length
+
+        return PacketList(packet_list)
+
+    def sample_n_flows(
         self, initial_time: float, min_num_flows: int
     ) -> SampledFlowSession:
         # OPTIM: so much to do here. We might need to depend on a c++ library to do this.
@@ -214,7 +248,7 @@ class UniformWindowSampler:
             yield window
 
 
-def binary_search(cpt_rdr: CaptureReader, target_time: float):
+def binary_search(cpt_rdr: CaptureReader, target_time: float) -> int:
     """
     Given a capture and a target time, will return the index of the first packet
     that is after the target time
@@ -232,7 +266,12 @@ def binary_search(cpt_rdr: CaptureReader, target_time: float):
         return high
 
 
-def binary_till_two(target_time: float, cpt_rdr: CaptureReader):
+def binary_search_upper(cpt_rdr: CaptureReader, target_time: float) -> int:
+    _, high = binary_till_two(target_time, cpt_rdr)
+    return high
+
+
+def binary_till_two(target_time: float, cpt_rdr: CaptureReader) -> Tuple[int, int]:
     """
     Will do binary search until only two elements remain
     """
@@ -243,7 +282,7 @@ def binary_till_two(target_time: float, cpt_rdr: CaptureReader):
     # while high > low:
     while (high - low) != 1:
         mid = ceil((high + low) / 2)  # CHECK: It *should* be ceil. Check nonetheless
-        if target_time > float(cpt_rdr[mid].time):
+        if target_time > float(cpt_rdr[mid]["timestamp"]):
             low = mid
         else:
             high = mid

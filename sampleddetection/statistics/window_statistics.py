@@ -2,10 +2,11 @@
 Functions that are fed list of packets and derive 
 statitics relevant to machine learning algorithms
 """
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 
 # from pyshark.packet.packet import Packet
 from scapy.all import Packet
+from scapy.plist import PacketList
 
 # from cicflowmeter.features.context.packet_direction import PacketDirection
 from sampleddetection.datastructures.context.packet_direction import PacketDirection
@@ -19,7 +20,7 @@ EXPIRED_UPDATE = 40
 
 # TODO: I anticipate choking due to memory for large enough windows.
 # might want to offload some of the values to a stream
-def get_flows(packets: List[Packet]) -> Dict[Tuple, Flow]:
+def get_flows(packets: Union[List[Packet], PacketList]) -> Dict[Tuple, Flow]:
     """
     Given a list of packets, return a list of statistics
     relevant to machine learning algorithms

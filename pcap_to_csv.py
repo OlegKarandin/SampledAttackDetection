@@ -12,14 +12,12 @@ from scapy.layers.inet6 import IPv6
 from tqdm import tqdm
 
 from sampleddetection.datastructures.context.packet_flow_key import (
-    get_packet_flow_key,
-    get_simple_tuple,
-)
+    get_packet_flow_key, get_simple_tuple)
 
 flags = ["TCP", "FIN", "SYN", "RST", "PSH", "ACK", "URG", "ECE", "CWR"]
 # DEBUG: for counting
 ipv6_counter = 0
-# In order to reduce space I will place TCP as one of the flogs, if set to False then its UDP
+# In order to reduce space I will place TCP as one of the flags, if set to False then its UDP
 
 
 def argsies():
@@ -124,20 +122,16 @@ if __name__ == "__main__":
     precision = read_pcap_global_header(args.pcap_path)
     print(f"PCap file {args.pcap_path} has a timestamp precision of {precision}")
 
-    cur_pack = caprdr.read_packet()
-
-    all_rows = []
-    bar = tqdm(desc="Reading packets")
+    cur_pack = caprdr.read_packet() all_rows = []
+    bar = tqdm(total=13788878, desc="Reading packets")
     # i = 0
     while cur_pack != None:
         # TODO create an index for flows as well.
         row = packet_parser(cur_pack)
         bar.update(1)
         # bar.set_description(f"{i} packets processed")
-        if len(row) == 0:
-            cur_pack = caprdr.read_packet()
-            continue
-        all_rows.append(row)
+        if len(row) != 0:
+            all_rows.append(row)
         # i += 1
         # if i > 100:
         #     break
