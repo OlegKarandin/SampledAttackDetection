@@ -12,9 +12,11 @@ from scapy.layers.inet6 import IPv6
 from tqdm import tqdm
 
 from sampleddetection.datastructures.context.packet_flow_key import (
-    get_packet_flow_key, get_simple_tuple)
+    get_packet_flow_key,
+    get_simple_tuple,
+)
 
-flags = ["TCP", "FIN", "SYN", "RST", "PSH", "ACK", "URG", "ECE", "CWR"]
+flags = ["FIN", "SYN", "RST", "PSH", "ACK", "URG", "ECE", "CWR"]
 # DEBUG: for counting
 ipv6_counter = 0
 # In order to reduce space I will place TCP as one of the flags, if set to False then its UDP
@@ -37,6 +39,7 @@ def argsies():
             "packet_length",
             "int_head_len",
             "int_ttl",
+            "layers",
             "tcp_window",
             "payload_size",
             "flags_mask",
@@ -76,7 +79,6 @@ def packet_parser(packet: Packet) -> List[Any]:
     flag_bits = np.zeros(len(flags), dtype=bool)
     # flag_bits.setall(False)
     src_ip, dst_ip, srcp, dstp = get_simple_tuple(packet)
-    flag_bits[0] = data_protocol == "TCP"
 
     if IPv6 in packet:
         ipv6_counter = ipv6_counter + 1
@@ -100,6 +102,7 @@ def packet_parser(packet: Packet) -> List[Any]:
         len(packet),
         packet["IP"].ihl,
         packet["IP"].ttl,
+        packet.layers,
         packet["TCP"].window if data_protocol == "TCP" else 0,
         len(packet[data_protocol].payload),
         flag_bits,
@@ -119,10 +122,12 @@ if __name__ == "__main__":
     # Load the pcap file
     caprdr = PcapReader(str(args.pcap_path))  # type: ignore
     # Check for the precision of the timestamp
+    # TOREM: This could be useless
     precision = read_pcap_global_header(args.pcap_path)
     print(f"PCap file {args.pcap_path} has a timestamp precision of {precision}")
 
-    cur_pack = caprdr.read_packet() all_rows = []
+    cur_pack = caprdr.read_packet()
+    all_rows = []
     bar = tqdm(total=13788878, desc="Reading packets")
     # i = 0
     while cur_pack != None:
