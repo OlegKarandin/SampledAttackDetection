@@ -61,14 +61,20 @@ class DynamicWindowSampler:
         )  # Assumes that we will start `window_skip` after inference
         next_stop = cur_time + window_length
 
+        flow_session = SampledFlowSession(
+            sampwindow_length=window_length, sample_initpos=initial_time
+        )
+
         idx_curpack = binary_search_upper(self.csvrdr, initial_time)
 
-        flow_session = SampledFlowSession()
-
         for _ in range(self.NUM_WINDOWS_PER_SAMPLE):
+            self.logger.info(
+                f"Sampling for one window cur_time={cur_time}, next_stop = {next_stop}"
+            )
             while cur_time < next_stop:
+                self.logger.info(f"cur_time {cur_time} stopping at {next_stop}")
                 curpack = self.csvrdr[idx_curpack]
-                cur_time = curpack["timestamp"]
+                cur_time = curpack.time
                 if cur_time < next_stop:
                     # packet_list.append(curpack)
                     flow_session.on_packet_received(curpack)
@@ -281,7 +287,7 @@ def binary_till_two(target_time: float, pckt_rdr: AbstractReader) -> Tuple[int, 
     Will do binary search until only two elements remain
     """
     low: int = 0
-    high: int = len(pckt_rdr)
+    high: int = len(pckt_rdr) - 1
     mid: int = 0
     # Do binary search
     # while high > low:

@@ -7,6 +7,7 @@ from typing import Union
 from scapy.packet import Packet
 from scapy.sessions import DefaultSession
 
+from sampleddetection.datastructures.packet_like import PacketLike
 from sampleddetection.utils import setup_logger
 
 from .constants import EXPIRED_UPDATE, GARBAGE_COLLECT_PACKETS
@@ -25,7 +26,7 @@ class SampledFlowSession(DefaultSession):
 
         # Sample Variables
         # TODO: Ensure these things are being passed
-        self.samp_window = kwargs["sampling_window"]
+        self.sampwindow_length = kwargs["sampwindow_length"]
         self.samp_curinitpos = kwargs["sample_initpos"]
 
         super(SampledFlowSession, self).__init__(*args, **kwargs)
@@ -37,10 +38,10 @@ class SampledFlowSession(DefaultSession):
         return super(SampledFlowSession, self).toPacketList()
 
     def update_sampling_params(self, samp_freq, samp_wind, samp_curinitpos) -> None:
-        self.samp_window = samp_wind
+        self.sampwindow_length = samp_wind
         self.samp_curinitpos = samp_curinitpos
 
-    def on_packet_received(self, packet: Packet):
+    def on_packet_received(self, packet: PacketLike):
         """
         Return:
         -------
@@ -54,9 +55,9 @@ class SampledFlowSession(DefaultSession):
         direction = PacketDirection.FORWARD
 
         # We will not deal with non TCP/UDP protocols for now
-        if "TCP" not in packet:
+        if not ("TCP" in packet):
             return False
-        elif "UDP" not in packet:
+        elif not ("UDP" in packet):
             return False
 
         # Ensure that we are not taking sample outside our window
@@ -103,7 +104,8 @@ class SampledFlowSession(DefaultSession):
                     self.flows[(packet_flow_key, count)] = flow
                     break
 
-        elif "F" in packet.flags:
+        # CHECK: This was "F" before, which is suuper weird.
+        elif "FIN" in packet.flags:
             # If it has FIN flag then early collect flow and continue
             flow.add_packet(packet, direction)
             self.garbage_collect(packet.time)

@@ -9,7 +9,7 @@ from scapy.all import Packet, PcapReader, rdpcap, wrpcap
 from scapy.plist import PacketList
 from tqdm import tqdm
 
-from sampleddetection.datastructures.packet_like import PacketLike
+from sampleddetection.datastructures.packet_like import CSVPacket, PacketLike
 
 from ..utils import setup_logger
 
@@ -132,17 +132,19 @@ class CSVReader(AbstractReader):
             f"CSV loaded, took {time() - strt: 4.2f} seconds with {len(self.csv_df)} length"
         )
 
-        self.first_sniff_time = self.csv_df.loc[0, "timestamp"]
-        self.last_sniff_time = self.csv_df.loc[self.csv_df.index[-1], "timestamp"]
+        self.first_sniff_time: float = self.csv_df.loc[0, "timestamp"]
+        self.last_sniff_time: float = self.csv_df.loc[
+            self.csv_df.index[-1], "timestamp"
+        ]
 
     def __len__(self):
         return len(self.csv_df)
 
     def __getitem__(self, idx) -> PacketLike:
-        return CSVPacket(self.csv_df[idx])
+        return CSVPacket(self.csv_df.iloc[idx])
 
     def getTimestamp(self, idx):
-        return self.csv_df[idx]["timestamp"]
+        return self.csv_df.iloc[idx]["timestamp"]
 
 
 # TODO::  Add AbstractReader as parent when needed. This class is not being used atm.

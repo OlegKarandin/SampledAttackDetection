@@ -1,3 +1,7 @@
+import os
+
+from sampleddetection.utils import unusable
+
 from .context.packet_direction import PacketDirection
 from .packet_time import PacketTime
 
@@ -55,6 +59,8 @@ class PacketCount:
             return backward_size / forward_size
         return 0
 
+    # TOREM: remove unsable decorator when everything works
+    @unusable(reason="We will not be using payload for csv", date="Mar 18")
     @staticmethod
     def get_payload(packet):
         if "TCP" in packet:

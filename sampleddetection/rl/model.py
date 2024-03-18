@@ -1,3 +1,4 @@
+from logging import DEBUG
 from typing import List, Union
 
 import torch
@@ -21,8 +22,9 @@ class Environment:
     """
 
     # Hyperparameters
-    WINDOW_SKIP_RANGE = [1 / 1e-6, 1 / 1e0]
-    WINDOW_LENGTH_RANGE = [1e-6, 1e0]
+    # CHECK: That we hav good ranges
+    WINDOW_SKIP_RANGE = [1e-3, 1e2]
+    WINDOW_LENGTH_RANGE = [1e-6, 1e-5]
     # TODO: Implement below
     AMOUNT_OF_SAMPLES_PER_ACTION = 1  # Where action means selection of frequency/window
     PREVIOUS_AMNT_SAMPLES = 12
@@ -36,7 +38,7 @@ class Environment:
     ):
         self.sampler = sampler
         self.M = simultaneous_enviroments
-        self.logger = setup_logger(self.__class__.__name__)
+        self.logger = setup_logger(self.__class__.__name__, DEBUG)
 
     def step(self, cur_state: State, action: Action) -> torch.Tensor:
         # Get current positions
@@ -61,15 +63,18 @@ class Environment:
             self.sampler.csvrdr.last_sniff_time,
         )
 
+        self.logger.debug("Restarting the environment")
         assert min_time != max_time, "Cap Reader not initialized Properly"
 
         # Select M distinct staring positions
         # TODO: Ensure we are not selecting to far into the day where no samples are possible.
         # ( We could also just leave it as noise for now >:])
         if starting_times == None:
-            starting_times: Tensor = (
-                torch.rand(self.M) * (max_time - min_time) + min_time
-            )
+            starting_times = torch.rand(self.M) * (max_time - min_time) + min_time
+        else:
+            assert (
+                len(starting_times) == self.M
+            ), "Starting_times not equal to amount of environments"
         self.logger.debug(f"Staring times are {starting_times}")
 
         # Staring Frequencies
@@ -86,16 +91,17 @@ class Environment:
         # Create New Flow Session
         states: List[State] = []
         for i in range(self.M):
+            flow_sesh = self.sampler.sample(
+                starting_times[i].item(),
+                starting_winskips[i].item(),
+                starting_winlens[i].item(),
+            )
             states.append(
                 State(
                     time_point=starting_times[i].item(),
                     cur_frequency=starting_winskips[i].item(),
                     window_length=starting_winlens[i].item(),
-                    flow_sesh=self.sampler.sample(
-                        starting_times[i].item(),
-                        starting_winskips[i].item(),
-                        starting_winlens[i].item(),
-                    ),
+                    flow_sesh=flow_sesh,
                 )
             )
 
