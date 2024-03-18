@@ -91,6 +91,8 @@ def packet_parser(packet: Packet) -> List[Any]:
     if "IP" not in packet:
         print(f"Ip not found in packet, these are the layers {packet.layers}")
 
+    # get_layers
+    layers = [str(l.__name__) for l in packet.layers()]
     # Append data
     row = [
         src_ip,
@@ -102,7 +104,7 @@ def packet_parser(packet: Packet) -> List[Any]:
         len(packet),
         packet["IP"].ihl,
         packet["IP"].ttl,
-        packet.layers,
+        layers,
         packet["TCP"].window if data_protocol == "TCP" else 0,
         len(packet[data_protocol].payload),
         flag_bits,
