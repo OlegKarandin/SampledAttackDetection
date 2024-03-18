@@ -40,6 +40,20 @@ def setup_logger(logger_name: str, logging_level=logging.INFO):
     return logger
 
 
+def unusable(reason: str, date: str):
+    """Means to highlight a function that should be halted if called during a specific development branch"""
+
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            raise NotImplementedError(
+                f"This function was deprecated on {date}. Reason: {reason}"
+            )
+
+        return wrapper
+
+    return decorator
+
+
 def deprecated(reason: str, date: str):
     """This decorator disables the provided function."""
 
