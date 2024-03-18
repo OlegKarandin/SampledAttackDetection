@@ -19,11 +19,13 @@ import torch
 from tqdm import tqdm
 
 from sampleddetection.rl.model import Environment
+
 # %% Import parsers
-from sampleddetection.samplers.window_sampler import (DynamicWindowSampler,
-                                                      UniformWindowSampler)
-from sampleddetection.statistics.window_statistics import (flow_to_stats,
-                                                           get_flows)
+from sampleddetection.samplers.window_sampler import (
+    DynamicWindowSampler,
+    UniformWindowSampler,
+)
+from sampleddetection.statistics.window_statistics import flow_to_stats, get_flows
 from sampleddetection.utils import setup_logger
 
 # Set up all random seeds to be the same
@@ -36,9 +38,14 @@ def get_args() -> argparse.Namespace:
         "--pcap_path",
         type=str,
         help="(Deprecated use csv_path instead) Path to the .pcap file",
-        required=False
+        required=False,
     )
-    argparsr.add_argument("--csv_path", )
+    argparsr.add_argument(
+        "--csv_path",
+        default="./bigdata/Wednesday.csv",
+        type=str,
+        help="Path to the csv file to read.",
+    )
     argparsr.add_argument(
         "--window_skip", type=float, default=1.0, help="Time to skip between windows"
     )
@@ -58,11 +65,6 @@ def get_args() -> argparse.Namespace:
     )
 
     # Warn that the pcap_path argument is deprecated and should not be used unless sure
-    if "--pcap_path" in argparsr.parse_args():
-        logger.warn(
-            "🛑 WARNING: The --pcap_path argument is deprecated and should not be used unless you are sure of what you are doing."
-        )
-
 
     return argparsr.parse_args()
 
@@ -77,8 +79,14 @@ def accuracy_metrics(y_test, y_pred):
 
 
 def sanitize_args(args: argparse.Namespace):
-    assert Path(args.pcap_path).exists(), "Path provided does not exist."
-    args.pcap_path = Path(args.pcap_path)
+    # assert Path(args.pcap_path).exists(), "Path provided does not exist."
+    if "--pcap_path" in args:
+        logger.warn(
+            "🛑 WARNING: The --pcap_path argument is deprecated and should not be used unless you are sure of what you are doing."
+        )
+    if "csv_path" in args:
+        assert Path(args.csv_path).exists(), "Provided csv file does not exists"
+        args.csv_path = Path(args.csv_path)
     # TODO: More stuff for window size and the like
     return args
 
@@ -107,7 +115,6 @@ if __name__ == "__main__":
     ##############################
     # Init Values
     ##############################
-
 
     args = sanitize_args(get_args())
 
@@ -159,7 +166,8 @@ if __name__ == "__main__":
     ##############################
     # Run Simulation
     ##############################
-    dynamic_sampler = DynamicWindowSampler(args.)
+    logger.info(f"Working with file {args.csv_path}")
+    dynamic_sampler = DynamicWindowSampler(args.csv_path)
     environment = Environment(dynamic_sampler, 2)
     training_loop(environment, 12)
 

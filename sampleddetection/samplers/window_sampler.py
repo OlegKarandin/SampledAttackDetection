@@ -10,23 +10,17 @@ from typing import List, Tuple, Union
 import numpy as np
 import pandas as pd
 import torch
-from scapy.all import Packet, PcapReader, rdpcap, wrpcap
 from scapy.plist import PacketList
 from tqdm import tqdm
 
 from sampleddetection.common_lingo import RelevantStats
 from sampleddetection.datastructures.context.packet_flow_key import get_packet_flow_key
 from sampleddetection.datastructures.flowsession import SampledFlowSession
-from sampleddetection.readers.readers import (
-    CaptureReader,
-    CSVReader,
-    PartitionCaptureReader,
-)
+from sampleddetection.readers.readers import AbstractReader, CaptureReader, CSVReader
 
-from ..utils import setup_logger
+from ..utils import deprecated, setup_logger
 
 # import PcaketList
-MAX_MEM = 15e9  # GB This is as mcuh as we want in ram at once
 # MAX_MEM = 250e6  # GB This is as mcuh as we want in ram at once
 # MAX_MEM = 100e6  # GB This is as mcuh as we want in ram at once
 # MAX_MEM = 2 ** (26.575)
@@ -40,8 +34,8 @@ class DynamicWindowSampler:
 
     NUM_WINDOWS_PER_SAMPLE = 1
 
-    def __init__(self, path_str: str, window_skip: float, window_length: float):
-        path = Path(path_str)
+    def __init__(self, path: Path):
+        path_str = path.__str__()
         assert path.exists() and path_str.endswith(
             ".csv"
         ), "Path does not exist or is invalid"
@@ -52,32 +46,44 @@ class DynamicWindowSampler:
             raise ValueError(f"Provided path {path} does not exist")
 
         self.logger.info(f"Loading the capture file {path}")
-        self.caprdr = CSVReader(Path(path))
+        self.csvrdr = CSVReader(path)
 
     def sample(
         self, initial_time: float, window_skip: float, window_length: float
-    ) -> pd.DataFrame:
-        packet_list = []
+    ) -> SampledFlowSession:
+        # ) -> pd.DataFrame:
+        """
+        Mar 15, 2024
+        """
+        # packet_list = []
         cur_time = (
             initial_time + window_skip
         )  # Assumes that we will start `window_skip` after inference
         next_stop = cur_time + window_length
 
-        idx_curpack = binary_search_upper(self.caprdr, initial_time)
+        idx_curpack = binary_search_upper(self.csvrdr, initial_time)
+
+        flow_session = SampledFlowSession()
+
         for _ in range(self.NUM_WINDOWS_PER_SAMPLE):
             while cur_time < next_stop:
-                curpack = self.caprdr[idx_curpack]
+                curpack = self.csvrdr[idx_curpack]
                 cur_time = curpack["timestamp"]
                 if cur_time < next_stop:
-                    packet_list.append(curpack)
+                    # packet_list.append(curpack)
+                    flow_session.on_packet_received(curpack)
 
                 idx_curpack += 1
 
             cur_time = next_stop + window_skip
             next_stop = cur_time + window_length
 
-        return PacketList(packet_list)
+        return flow_session
 
+    @deprecated(
+        reason="We are not using window_length as a class property anymore",
+        date="Mar 15, 2024",
+    )
     def sample_n_flows(
         self, initial_time: float, min_num_flows: int
     ) -> SampledFlowSession:
@@ -98,7 +104,7 @@ class DynamicWindowSampler:
 
         while cur_num_flows < min_num_flows:
             # Keep going through packets
-            cur_packet = self.caprdr[idx_curpack]
+            cur_packet = self.csvrdr[idx_curpack]
             cur_time = cur_packet.time
 
             flow_session.on_packet_received(cur_packet, cur_left_limit, cur_right_limit)
@@ -107,7 +113,6 @@ class DynamicWindowSampler:
             idx_curpack += 1
             # TODO: check if we hit the limits of the pcap file. If so we may want to start again
 
-            # Entrando aca que pedos
             if cur_time > cur_right_limit:
                 cur_left_limit = cur_right_limit + self.window_skip
                 cur_right_limit = cur_left_limit + self.window_length
@@ -266,23 +271,23 @@ def binary_search(cpt_rdr: CaptureReader, target_time: float) -> int:
         return high
 
 
-def binary_search_upper(cpt_rdr: CaptureReader, target_time: float) -> int:
+def binary_search_upper(cpt_rdr: AbstractReader, target_time: float) -> int:
     _, high = binary_till_two(target_time, cpt_rdr)
     return high
 
 
-def binary_till_two(target_time: float, cpt_rdr: CaptureReader) -> Tuple[int, int]:
+def binary_till_two(target_time: float, pckt_rdr: AbstractReader) -> Tuple[int, int]:
     """
     Will do binary search until only two elements remain
     """
     low: int = 0
-    high: int = len(cpt_rdr)
+    high: int = len(pckt_rdr)
     mid: int = 0
     # Do binary search
     # while high > low:
     while (high - low) != 1:
         mid = ceil((high + low) / 2)  # CHECK: It *should* be ceil. Check nonetheless
-        if target_time > float(cpt_rdr[mid]["timestamp"]):
+        if target_time > pckt_rdr.getTimestamp(mid):
             low = mid
         else:
             high = mid

@@ -57,8 +57,8 @@ class Environment:
     def reset(self, starting_times: Union[None, Tensor] = None) -> List[State]:
         # Find different simulatenous positions to draw from
         min_time, max_time = (
-            self.sampler.caprdr.first_sniff_time,
-            self.sampler.caprdr.last_sniff_time,
+            self.sampler.csvrdr.first_sniff_time,
+            self.sampler.csvrdr.last_sniff_time,
         )
 
         assert min_time != max_time, "Cap Reader not initialized Properly"
@@ -67,15 +67,17 @@ class Environment:
         # TODO: Ensure we are not selecting to far into the day where no samples are possible.
         # ( We could also just leave it as noise for now >:])
         if starting_times == None:
-            starting_times = torch.rand(self.M) * (max_time - min_time) + min_time
+            starting_times: Tensor = (
+                torch.rand(self.M) * (max_time - min_time) + min_time
+            )
         self.logger.debug(f"Staring times are {starting_times}")
 
         # Staring Frequencies
-        starting_frequencies = (
+        starting_winskips = (
             torch.rand(self.M) * (self.WINDOW_SKIP_RANGE[1] - self.WINDOW_SKIP_RANGE[0])
             + self.WINDOW_SKIP_RANGE[0]
         )
-        waiting_windows = (
+        starting_winlens = (
             torch.rand(self.M)
             * (self.WINDOW_LENGTH_RANGE[1] - self.WINDOW_LENGTH_RANGE[0])
             + self.WINDOW_LENGTH_RANGE[0]
@@ -87,10 +89,12 @@ class Environment:
             states.append(
                 State(
                     time_point=starting_times[i].item(),
-                    cur_frequency=starting_frequencies[i].item(),
-                    window_length=waiting_windows[i].item(),
-                    flow_sesh=self.sampler.sample_w_freq_n_win(
-                        starting_times[i].item(), self.MIN_FLOW_MEMORY
+                    cur_frequency=starting_winskips[i].item(),
+                    window_length=starting_winlens[i].item(),
+                    flow_sesh=self.sampler.sample(
+                        starting_times[i].item(),
+                        starting_winskips[i].item(),
+                        starting_winlens[i].item(),
                     ),
                 )
             )

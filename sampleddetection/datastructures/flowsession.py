@@ -40,7 +40,7 @@ class SampledFlowSession(DefaultSession):
         self.samp_window = samp_wind
         self.samp_curinitpos = samp_curinitpos
 
-    def on_packet_received(self, packet: Packet, left_limit: float, right_limit: float):
+    def on_packet_received(self, packet: Packet):
         """
         Return:
         -------
@@ -108,10 +108,6 @@ class SampledFlowSession(DefaultSession):
             flow.add_packet(packet, direction)
             self.garbage_collect(packet.time)
             return True
-
-        # By this point flow != None
-        if packet.time > left_limit and packet.time < right_limit:
-            flow.add_packet(packet, direction)
 
         if self.packets_count % GARBAGE_COLLECT_PACKETS == 0 or flow.duration > 120:
             self.garbage_collect(packet.time)

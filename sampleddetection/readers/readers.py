@@ -1,4 +1,41 @@
-class CaptureReader:
+import json
+from abc import ABC, abstractmethod
+from pathlib import Path
+from time import time
+from typing import Tuple
+
+import pandas as pd
+from scapy.all import Packet, PcapReader, rdpcap, wrpcap
+from scapy.plist import PacketList
+from tqdm import tqdm
+
+from sampleddetection.datastructures.packet_like import PacketLike
+
+from ..utils import setup_logger
+
+MAX_MEM = 15e9  # GB This is as mcuh as we want in ram at once
+
+
+class AbstractReader(ABC):
+    """
+    Abstract class for readers
+    Readers are defined to be obejcts that return packet-like info
+    """
+
+    @abstractmethod
+    def __getitem__(self, index):
+        pass
+
+    @abstractmethod
+    def __len__(self) -> int:
+        pass
+
+    @abstractmethod
+    def getTimestamp(self, idx) -> float:
+        pass
+
+
+class CaptureReader(AbstractReader):
     """
     Interface for PCAP File
     """
@@ -74,45 +111,41 @@ class CaptureReader:
         return self.packet_list[idx]
 
 
-class CSVReader:
+class CSVReader(AbstractReader):
     """
     Interface for CSV
     """
 
-    def __init__(self, pcap_path: Path, mdata_path: Path):
+    def __init__(self, csv_path: Path):
         """
         Parameters
         ~~~~~~~~~~
             mdata_path : Path to store meta data after having a pass over pcap file and forming an index
         """
         # Parameters
-        self.pcap_path = pcap_path
-        self.mdata_path = mdata_path
-        self.first_sniff_time = 0.0
-        self.last_sniff_time = 0.0
+        self.logger = setup_logger(__class__.__name__)
+        self.csv_path = csv_path
+        self.logger.info("Reading csv...")
+        strt = time()
+        self.csv_df = pd.read_csv(csv_path)
+        self.logger.info(
+            f"CSV loaded, took {time() - strt: 4.2f} seconds with {len(self.csv_df)} length"
+        )
 
-        # Check if the cache file exists and load if true
-        if self.mdata_path.exists():
-            self.timestamp_json = json.load(self.mdata_path.open())
-        elif self.pcap_path.exists() and pcap_path.__str__.endswith(".pcap"):
-            # Create the File itself.
-            # self._create_partition
-            pass
+        self.first_sniff_time = self.csv_df.loc[0, "timestamp"]
+        self.last_sniff_time = self.csv_df.loc[self.csv_df.index[-1], "timestamp"]
 
-        else:
-            raise ValueError("The provided pcap file does not exist")
+    def __len__(self):
+        return len(self.csv_df)
 
-        # Otherwise create partition yourself.
+    def __getitem__(self, idx) -> PacketLike:
+        return CSVPacket(self.csv_df[idx])
 
-    def _create_indexing_file(self, packet_reader: PcapReader):
-        # Pass through the entire file. taking note of the byte offsets of every packet and storing them
-
-        # Store also the timestamp for seeking later
-
-        pass
+    def getTimestamp(self, idx):
+        return self.csv_df[idx]["timestamp"]
 
 
-# TODO: You might want to create a parent class for these two in case you use them interchangeably.
+# TODO::  Add AbstractReader as parent when needed. This class is not being used atm.
 class PartitionCaptureReader:
     """
     Warning: I can't recommend the use of this class since its  I/O operations will be significantly

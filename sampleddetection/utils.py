@@ -40,6 +40,17 @@ def setup_logger(logger_name: str, logging_level=logging.INFO):
     return logger
 
 
+def deprecated(reason: str, date: str):
+    """This decorator disables the provided function."""
+
+    def noop(*args, **kwargs):
+        raise NotImplementedError(
+            f"This function was deprecated on {date}. Reason: {reason}"
+        )
+
+    return noop
+
+
 def get_statistics(alist: list):
     """Get summary statistics of a list"""
     iat = dict()
