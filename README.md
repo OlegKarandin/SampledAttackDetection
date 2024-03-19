@@ -2,6 +2,9 @@
 
 Application project to test sampled algorithm on DDOS Detection.
 
+At some point in the development working with such large `pcap` files dynamically was deemed too computationally taxing;
+as such, much of the code has been adapted to work on csv files that are generated via `pcap_to_csv.py` file.
+
 # Structure
 
 1. `./sampleddetection/` package to keep all relevant utilities organized.

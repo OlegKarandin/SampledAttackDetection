@@ -99,10 +99,20 @@ def training_loop(
     """
     Problems to solve. How to
     """
+    logger = setup_logger("Train_Loop", logging.INFO)
+    # DEBUG:
+    # pd_lowest_time = environment.sampler.csvrdr.csv_df["timestamp"].min()
+    # logger.info(f"Lowest by pandas column is {pd_lowest_time}")
+
+    # CHECK: I dont know why this is the only way to not lose precision but be careful
+    lowest_time = torch.zeros([environment.M], dtype=torch.float64)
+    lowest_time[0] = environment.sampler.csvrdr[0].time
+    logger.info(f"Starting the sampling with the lowest time {lowest_time}")
     # Start Environment
     # episodes_bar = tqdm(range(episodes), desc="Training over episodes")
     for episode in range(episodes):
-        cur_state = environment.reset(torch.Tensor([1500000000]))
+        cur_state = environment.reset(lowest_time)
+        logger.info("Done with one episode")
         exit()  # TOREM: once `reset()` works well
         # Get Initial State
 
@@ -136,8 +146,7 @@ if __name__ == "__main__":
         "Flow IAT Mean",
         "Flow IAT Max",
         "Flow IAT Min",
-        "Fwd IAT Mean",
-        "Fwd IAT Max",
+        "Fwd IAT Mean" "Fwd IAT Max",
         "Fwd IAT Min",
         "Bwd IAT Mean",
         "Bwd IAT Max",
@@ -168,7 +177,7 @@ if __name__ == "__main__":
     ##############################
     logger.info(f"Working with file {args.csv_path}")
     dynamic_sampler = DynamicWindowSampler(args.csv_path)
-    environment = Environment(dynamic_sampler, 2)
+    environment = Environment(dynamic_sampler, 1)
     training_loop(environment, 12)
 
     exit()
