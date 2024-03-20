@@ -28,8 +28,25 @@ from sampleddetection.samplers.window_sampler import (
 )
 
 
-def test_flowbytes(csvreader: CSVReader):
-    logger.info(f"We will work with csv file {csvreader.csv_path}")
+def test_flowbytes(flowsesh: SampledFlowSession):
+    data = flowsesh.get_data()
+    first_key = next(iter(data))
+    bytes_length = (
+        data[first_key]["totlen_fwd_pkts"] + data[first_key]["totlen_bwd_pkts"]
+    )
+    assert bytes_length == 142114  # DATA extracted from wireshark
+
+
+def test_flowpackets(flowsesh: SampledFlowSession):
+    data = flowsesh.get_data()
+    first_key = next(iter(data))
+    packet_count = data[first_key]["tot_fwd_pkts"] + data[first_key]["tot_bwd_pkts"]
+    assert packet_count == 172  # DATA extracted from wireshark
+
+
+@pytest.fixture
+def flowsesh(request) -> SampledFlowSession:
+    csvreader = CSVReader(Path(request.config.getoption("--csvfile")))
     dws = DynamicWindowSampler(csvrdr=csvreader)
     first_sniff = dws.csvrdr.first_sniff_time - 1
     final_sniff = dws.csvrdr.last_sniff_time
@@ -39,17 +56,12 @@ def test_flowbytes(csvreader: CSVReader):
         non_existant_window,
         final_sniff - first_sniff + non_existant_window + 1,
     )
-    data = flowsesh.get_data()
-    first_key = next(iter(data))
-    bytes_length = (
-        data[first_key]["totlen_fwd_pkts"] + data[first_key]["totlen_bwd_pkts"]
-    )
-    assert bytes_length == 142114  # DATA extracted from wireshark
+    return flowsesh
 
 
-@pytest.fixture
-def csvreader(request) -> CSVReader:
-    return CSVReader(Path(request.config.getoption("--csvfile")))
+# @pytest.fixture
+# def csvreader(request) -> CSVReader:
+#     return CSVReader(Path(request.config.getoption("--csvfile")))
 
 
 # @pytest.fixture
