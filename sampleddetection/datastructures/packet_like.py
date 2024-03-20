@@ -1,3 +1,4 @@
+import ast
 from abc import ABC, abstractmethod
 from typing import Dict, List
 
@@ -43,15 +44,44 @@ class PacketLike(ABC):
     def dst_port(self) -> int:
         pass
 
+    @property
+    @abstractmethod
+    def payload_size(self) -> int:
+        pass
+
     @abstractmethod
     def __contains__(self, protocol: str):
+        pass
+
+    @property
+    @abstractmethod
+    def tcp_window(self) -> int:
+        pass
+
+    @property
+    @abstractmethod
+    def layers(self) -> List[str]:
+        pass
+
+    @abstractmethod
+    def __len__(self) -> int:
+        pass
+
+    @property
+    @abstractmethod
+    def header_size(self) -> int:
+        pass
+
+    @property
+    @abstractmethod
+    def __dict__(self) -> Dict:
         pass
 
 
 class CSVPacket(PacketLike):
     def __init__(self, row: pd.Series):
+        self.columns = row.index
         self.row: pd.Series = row
-        self.layers = row["layers"]
 
     @property
     def time(self) -> float:
@@ -81,3 +111,26 @@ class CSVPacket(PacketLike):
 
     def __contains__(self, protocol: str):
         return protocol in self.row["layers"]
+
+    @property
+    def payload_size(self) -> int:
+        return int(self.row["payload_size"])
+
+    @property
+    def tcp_window(self) -> int:
+        assert "TCP" in self.row["layers"], f"tcp_window() called on non-tcp packet"
+        return int(self.row["tcp_window"])
+
+    @property
+    def layers(self) -> List[str]:
+        return ast.literal_eval(self.row["layers"])
+
+    def __len__(self) -> int:
+        return int(self.row["packet_length"])
+
+    @property
+    def header_size(self) -> int:
+        return int(self.row["int_head_len"])
+
+    def __dict__(self) -> Dict:
+        return self.row.to_dict()  # type: ignore

@@ -3,6 +3,8 @@ from typing import Any, NamedTuple
 
 from scapy.all import Packet
 
+from sampleddetection.datastructures.packet_like import PacketLike
+
 from ..utils import get_statistics
 from . import constants
 from .context import packet_flow_key
@@ -198,7 +200,7 @@ class Flow:
 
         return data
 
-    def add_packet(self, packet: Any, direction: Enum) -> None:
+    def add_packet(self, packet: PacketLike, direction: PacketDirection) -> None:
         """Adds a packet to the current list of packets.
 
         Args:
@@ -223,16 +225,14 @@ class Flow:
                 direction == PacketDirection.FORWARD
                 and self.init_window_size[direction] == 0
             ):
-                self.init_window_size[direction] = packet["TCP"].window
+                self.init_window_size[direction] = packet.tcp_window
             elif direction == PacketDirection.REVERSE:
-                self.init_window_size[direction] = packet["TCP"].window
+                self.init_window_size[direction] = packet.tcp_window
 
         # First packet of the flow
         if self.start_timestamp == 0:
             self.start_timestamp = packet.time
-            self.protocol = packet.layers()[
-                -1
-            ]._name  # 🐛HACK: packet.proto doe snot exist so I am setting it to the highest protocol in the stack
+            self.protocol = packet.layers[-1]
 
     def update_subflow(self, packet):
         """Update subflow
@@ -265,14 +265,15 @@ class Flow:
         else:
             self.last_active = current_time
 
-    def update_flow_bulk(self, packet, direction):
+    def update_flow_bulk(self, packet: PacketLike, direction):
         """Update bulk flow
 
         Args:
             packet: Packet to be parse as bulk
 
         """
-        payload_size = len(PacketCount.get_payload(packet))
+        # payload_size = len(PacketCount.get_payload(packet))
+        payload_size = packet.payload_size
         if payload_size == 0:
             return
         if direction == PacketDirection.FORWARD:

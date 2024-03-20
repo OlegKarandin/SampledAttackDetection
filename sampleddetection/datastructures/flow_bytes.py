@@ -1,6 +1,7 @@
 from scapy.layers.inet import IP, TCP
 
 from .context.packet_direction import PacketDirection
+from .packet_like import PacketLike
 from .packet_time import PacketTime
 
 
@@ -150,8 +151,9 @@ class FlowBytes:
 
         return rate
 
-    def _header_size(self, packet):
-        return packet[IP].ihl * 4 if TCP in packet else 8
+    def _header_size(self, packet: PacketLike) -> int:
+        # return packet[IP].ihl * 4 if TCP in packet else 8
+        return packet.header_size
 
     def get_reverse_header_bytes(self) -> int:
         """Calculates the amount of header bytes in the header sent in the opposite direction as the flow.

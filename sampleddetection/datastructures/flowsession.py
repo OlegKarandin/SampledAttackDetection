@@ -58,9 +58,8 @@ class SampledFlowSession:
         direction = PacketDirection.FORWARD
 
         # We will not deal with non TCP/UDP protocols for now
-        if not ("TCP" in packet):
-            return False
-        elif not ("UDP" in packet):
+        # CHECK:
+        if not ("TCP" in packet) and not ("UDP" in packet):
             return False
 
         # Ensure that we are not taking sample outside our window
@@ -87,6 +86,9 @@ class SampledFlowSession:
             flow = Flow(packet, direction)
             packet_flow_key = get_packet_flow_key(packet, direction)
             self.flows[(packet_flow_key, count)] = flow
+            self.logger.warn(
+                f"You have added a new flow with the tuple : {(packet_flow_key, count)}"
+            )
 
         elif (packet.time - flow.latest_timestamp) > EXPIRED_UPDATE:
             # If the packet exists in the flow but the packet is sent
@@ -115,6 +117,7 @@ class SampledFlowSession:
 
     def get_data(self) -> Dict[Tuple, Dict]:
         info = {}
+        self.logger.info(f"We have {len(self.flows)} to go through")
         if len(self.flows) > 0:
             for k, v in self.flows.items():
                 info[k] = v.get_data()

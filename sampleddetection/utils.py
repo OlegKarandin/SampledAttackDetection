@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 
@@ -60,12 +61,23 @@ def deprecated(reason: str, date: str):
     def decorator(func):
         def wrapper(*args, **kwargs):
             raise NotImplementedError(
-                f"This function was deprecated on {date}. Reason: {reason}"
+                f"Function ({func.__name__}) was deprecated on {date}. Reason: {reason}"
             )
 
         return wrapper
 
     return decorator
+
+
+class NpEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NpEncoder, self).default(obj)
 
 
 def get_statistics(alist: list):

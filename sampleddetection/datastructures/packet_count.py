@@ -82,13 +82,14 @@ class PacketCount:
                     packet
                     for packet, direction in self.feature.packets
                     if direction == packet_direction
-                    and len(self.get_payload(packet)) > 0
+                    # and len(self.get_payload(packet)) > 0
+                    and packet.payload_size > 0
                 ]
             )
         return len(
             [
                 packet
                 for packet, direction in self.feature.packets
-                if len(self.get_payload(packet)) > 0
+                if packet.payload_size > 0
             ]
         )
