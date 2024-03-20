@@ -4,13 +4,9 @@ from datetime import datetime
 from math import ceil
 from pathlib import Path
 from random import shuffle
-from time import time
-from typing import List, Tuple, Union
+from typing import Tuple, Union
 
 import numpy as np
-import pandas as pd
-import torch
-from scapy.plist import PacketList
 from tqdm import tqdm
 
 from sampleddetection.common_lingo import RelevantStats
@@ -34,19 +30,31 @@ class DynamicWindowSampler:
 
     NUM_WINDOWS_PER_SAMPLE = 1
 
-    def __init__(self, path: Path):
+    def __init__(
+        self, path: Union[Path, None] = None, csvrdr: Union[CSVReader, None] = None
+    ):
         path_str = path.__str__()
-        assert path.exists() and path_str.endswith(
-            ".csv"
-        ), "Path does not exist or is invalid"
         self.logger = setup_logger(__class__.__name__, logging.DEBUG)
+        if csvrdr == None:
+            if path != None:
+                assert path.exists() and path_str.endswith(  # type: ignore
+                    ".csv"
+                ), "Path does not exist or is invalid"
 
-        self.logger.info(f"Loading the capture file {path_str}")
-        if not path.exists():
-            raise ValueError(f"Provided path {path} does not exist")
+                self.logger.info(f"Loading the capture file {path_str}")
+                if not path.exists():
+                    raise ValueError(f"Provided path {path} does not exist")
 
-        self.logger.info(f"Loading the capture file {path}")
-        self.csvrdr = CSVReader(path)
+                self.logger.info(f"Loading the capture file {path}")
+                self.csvrdr = CSVReader(path)
+            else:
+                raise ValueError("Path is None")
+        else:
+            self.csvrdr: CSVReader = csvrdr
+
+        self.first_sniff_time = self.csvrdr.first_sniff_time
+        self.last_sniff_time = self.csvrdr.last_sniff_time
+        self.max_idx = len(csvrdr.csv_df) - 1
 
     def sample(
         self, initial_time: float, window_skip: float, window_length: float
@@ -56,6 +64,7 @@ class DynamicWindowSampler:
         Mar 15, 2024
         """
         # packet_list = []
+
         cur_time = (
             initial_time + window_skip
         )  # Assumes that we will start `window_skip` after inference
@@ -65,14 +74,14 @@ class DynamicWindowSampler:
             sampwindow_length=window_length, sample_initpos=initial_time
         )
 
-        idx_curpack = binary_search_upper(self.csvrdr, initial_time)
+        idx_curpack = binary_search(self.csvrdr, initial_time)
 
         for _ in range(self.NUM_WINDOWS_PER_SAMPLE):
             self.logger.info(
                 f"Sampling for one window cur_time={cur_time}, next_stop = {next_stop}"
             )
-            while cur_time < next_stop:
-                self.logger.info(f"cur_time {cur_time} stopping at {next_stop}")
+            while cur_time < next_stop and idx_curpack <= self.max_idx:
+                # self.logger.debug(f"cur_time {cur_time} stopping at {next_stop}")
                 curpack = self.csvrdr[idx_curpack]
                 cur_time = curpack.time
                 if cur_time < next_stop:
@@ -83,6 +92,8 @@ class DynamicWindowSampler:
 
             cur_time = next_stop + window_skip
             next_stop = cur_time + window_length
+
+        print("Here")
 
         return flow_session
 
@@ -259,7 +270,7 @@ class UniformWindowSampler:
             yield window
 
 
-def binary_search(cpt_rdr: CaptureReader, target_time: float) -> int:
+def binary_search(cpt_rdr: AbstractReader, target_time: float) -> int:
     """
     Given a capture and a target time, will return the index of the first packet
     that is after the target time
@@ -269,9 +280,9 @@ def binary_search(cpt_rdr: CaptureReader, target_time: float) -> int:
     low, high = binary_till_two(target_time, cpt_rdr)
     # Once we have two closest elements we check the closes
     # Argmax it
-    if abs(target_time - float(cpt_rdr[low].time)) < abs(
-        target_time - float(cpt_rdr[high].time)
-    ):
+    if target_time <= float(cpt_rdr[low].time) and abs(
+        target_time - float(cpt_rdr[low].time)
+    ) < abs(target_time - float(cpt_rdr[high].time)):
         return low
     else:
         return high
