@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, List
 
 import pandas as pd
+from scapy.all import Packet
 
 # The order in which I stored them in the file
 # TODO:: Remove this hardcoded danger.
@@ -76,6 +77,87 @@ class PacketLike(ABC):
     @abstractmethod
     def __dict__(self) -> Dict:
         pass
+
+
+class ScapyPacket(PacketLike):
+    """
+    Wrapper for a scapy packet with our interface.
+    """
+
+    def __init__(self, packet: Packet):
+        self.packet: Packet = packet
+        self.proto = "None"
+        if "UDP" in packet:
+            self.proto = "UDP"
+        elif "TCP" in packet:
+            self.proto = "TCP"
+
+    @property
+    def time(self) -> float:
+        return float(self.packet.time)
+
+    @property
+    def flags(self) -> List[str]:
+        return self.packet.sprintf("%TCP.flags%").split("|")
+
+    @property
+    def src_ip(self) -> str:
+        assert "IP" in self.packet, "ScapyPacket is not IP packet"
+        return self.packet["IP"].src
+
+    @property
+    def dst_ip(self) -> str:
+        assert "IP" in self.packet, "ScapyPacket is not IP packet"
+        return self.packet["IP"].dst
+
+    @property
+    def src_port(self) -> int:
+        return self.packet[self.proto].sport
+
+    @property
+    def dst_port(self) -> int:
+        return self.packet[self.proto].dport
+
+    @property
+    def payload_size(self) -> int:
+        if self.proto == "None":
+            return 0
+        else:
+            return self.packet[self.proto].payload
+
+    def __contains__(self, protocol: str):
+        return protocol in self.packet
+
+    @property
+    def tcp_window(self) -> int:
+        assert self.proto == "TCP", f"tcp_window() called on non-tcp packet"
+        return self.packet["TCP"].window
+
+    @property
+    def layers(self) -> List[str]:
+        return [layer.name for layer in self.packet]
+
+    def __len__(self) -> int:
+        return len(self.packet)
+
+    @property
+    def header_size(self) -> int:
+        assert "IP" in self.packet, "ScapyPacket is not IP packet"
+        return self.packet["IP"].ihl * 4
+
+    def __dict__(self) -> Dict:
+        return {
+            "time": self.time,
+            "flags": self.flags,
+            "src_ip": self.src_ip,
+            "dst_ip": self.dst_ip,
+            "src_port": self.src_port,
+            "dst_port": self.dst_port,
+            "payload_size": self.payload_size,
+            "tcp_window": self.tcp_window,
+            "layers": self.layers,
+            "header_size": self.header_size,
+        }
 
 
 class CSVPacket(PacketLike):
