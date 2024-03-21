@@ -86,9 +86,9 @@ class SampledFlowSession:
             flow = Flow(packet, direction)
             packet_flow_key = get_packet_flow_key(packet, direction)
             self.flows[(packet_flow_key, count)] = flow
-            self.logger.warn(
-                f"You have added a new flow with the tuple : {(packet_flow_key, count)}"
-            )
+            # self.logger.warn(
+            #     f"You have added a new flow with the tuple : {(packet_flow_key, count)}"
+            # )
 
         elif (packet.time - flow.latest_timestamp) > EXPIRED_UPDATE:
             # If the packet exists in the flow but the packet is sent

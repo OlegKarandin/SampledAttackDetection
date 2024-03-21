@@ -77,9 +77,9 @@ class DynamicWindowSampler:
         idx_curpack = binary_search(self.csvrdr, initial_time)
 
         for _ in range(self.NUM_WINDOWS_PER_SAMPLE):
-            self.logger.info(
-                f"Sampling for one window cur_time={cur_time}, next_stop = {next_stop}"
-            )
+            # self.logger.info(
+            #     f"Sampling for one window cur_time={cur_time}, next_stop = {next_stop}"
+            # )
             while cur_time < next_stop and idx_curpack <= self.max_idx:
                 # self.logger.debug(f"cur_time {cur_time} stopping at {next_stop}")
                 curpack = self.csvrdr[idx_curpack]

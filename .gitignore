@@ -1,4 +1,6 @@
+**models/
 bigdata/
+**partitions/
 launch.json
 logs/
 *.log
