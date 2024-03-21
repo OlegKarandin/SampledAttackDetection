@@ -1,12 +1,14 @@
+# TODO:
+# - I have not checked on sub-microsecond precision.
+# - We are not dealing with ipv6
+import json
 from argparse import ArgumentParser
 from typing import Any, List
 
 import debugpy
 import numpy as np
 import pandas as pd
-import scapy
-from bitarray import bitarray
-from scapy.all import Packet, PcapReader, rdpcap, wrpcap
+from scapy.all import Packet, PcapNgReader, PcapReader, rdpcap, wrpcap
 from scapy.layers.inet import IP, TCP, UDP
 from scapy.layers.inet6 import IPv6
 from tqdm import tqdm
@@ -15,6 +17,7 @@ from sampleddetection.datastructures.context.packet_flow_key import (
     get_packet_flow_key,
     get_simple_tuple,
 )
+from sampleddetection.datastructures.packet_like import ScapyPacket
 
 flags = ["FIN", "SYN", "RST", "PSH", "ACK", "URG", "ECE", "CWR"]
 # DEBUG: for counting
@@ -76,13 +79,13 @@ def packet_parser(packet: Packet) -> List[Any]:
     global ipv6_counter
     data_protocol = "TCP" if "TCP" in packet else "UDP"
 
-    flag_bits = np.zeros(len(flags), dtype=bool)
     # flag_bits.setall(False)
-    src_ip, dst_ip, srcp, dstp = get_simple_tuple(packet)
-
-    if IPv6 in packet:
+    if "IPv6" in packet:
         ipv6_counter = ipv6_counter + 1
-        return []  # We are not dealing with ipv6
+        return []  # We are not dealing with ipv6 (See original CICFlowMeter)
+
+    flag_bits = np.zeros(len(flags), dtype=bool)
+    src_ip, dst_ip, srcp, dstp = get_simple_tuple(ScapyPacket(packet))
 
     if "TCP" in packet:
         for i in range(1, len(flags)):
@@ -93,6 +96,7 @@ def packet_parser(packet: Packet) -> List[Any]:
 
     # get_layers
     layers = [str(l.__name__) for l in packet.layers()]
+    # print(packet.time)
     # Append data
     row = [
         src_ip,
@@ -112,6 +116,31 @@ def packet_parser(packet: Packet) -> List[Any]:
     return row
 
 
+def get_tresol():
+    # Load the pcap file
+    caprdr = PcapNgReader(str(args.pcap_path))  # type: ignore
+    packet = caprdr.read_packet()
+
+    # Access the Interface Description Blocks (IDBs)
+    # Iterate over the IDBs and print the timestamp resolution for each interface
+
+    assert (
+        len(caprdr.interfaces) == 1
+    ), "Script has not been writte to handle over 1 interface"
+    interface = caprdr.interfaces[0]
+
+    # Extract the if_tsresol option (if it exists)
+    print(
+        f"We have \n"
+        f"\n\tLink Type {interface[0]}"
+        f"\n\tSnap len {interface[1]}"
+        f"\n\tTSResol {interface[2]}"
+    )
+    # Calculate actioal resolution
+    denominator = interface[2]
+    return denominator
+
+
 if __name__ == "__main__":
     # Start Here
     args = argsies()
@@ -121,13 +150,14 @@ if __name__ == "__main__":
         debugpy.wait_for_client()
         print("Client connecting. Debugging...")
 
-    # Load the pcap file
-    caprdr = PcapReader(str(args.pcap_path))  # type: ignore
+    # Get first four bytes of args.pcap_path
+    magic_bytes = open(args.pcap_path, "rb").read(4)
+    parsing_metadata = {"magin_bytes": "0x" + magic_bytes.hex()}
     # Check for the precision of the timestamp
-    # TOREM: This could be useless
-    precision = read_pcap_global_header(args.pcap_path)
-    print(f"PCap file {args.pcap_path} has a timestamp precision of {precision}")
+    resolution = get_tresol()
+    parsing_metadata["time_resol(denominator)"] = resolution
 
+    caprdr = PcapNgReader(str(args.pcap_path))  # type: ignore
     cur_pack = caprdr.read_packet()
     all_rows = []
     bar = tqdm(total=13788878, desc="Reading packets")
@@ -150,4 +180,8 @@ if __name__ == "__main__":
 
     print("All records received, now turning into csv_path")
     print(f"Skipped {ipv6_counter} ipv6 packets")
+
     pd.DataFrame(all_rows, columns=args.columnns).to_csv(args.csv_path, index=False)
+
+    with open(args.csv_path.replace(".csv", ".json"), "w") as f:
+        json.dump(parsing_metadata, f, indent=4)
