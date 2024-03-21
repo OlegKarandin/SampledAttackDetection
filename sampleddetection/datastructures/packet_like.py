@@ -170,8 +170,9 @@ class CSVPacket(PacketLike):
         return self.row["timestamp"]  # type:ignore
 
     @property
-    def flags(self) -> Dict[str, bool]:
-        boolean_list = {o: self.row["flags_mask"][i] for i, o in enumerate(order)}
+    def flags(self) -> List[str]:
+        # boolean_list = {o: self.row["flags_mask"][i] for i, o in enumerate(order)}
+        boolean_list = [f for f in self.row["flags_mask"]]
         return boolean_list  # type: ignore
         # take the list of booleans
 

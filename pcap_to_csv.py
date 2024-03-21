@@ -1,9 +1,10 @@
 # TODO:
 # - I have not checked on sub-microsecond precision.
 # - We are not dealing with ipv6
+import ast
 import json
 from argparse import ArgumentParser
-from typing import Any, List
+from typing import Any, Dict, List
 
 import debugpy
 import numpy as np
@@ -17,7 +18,7 @@ from sampleddetection.datastructures.context.packet_flow_key import (
     get_packet_flow_key,
     get_simple_tuple,
 )
-from sampleddetection.datastructures.packet_like import ScapyPacket
+from sampleddetection.datastructures.packet_like import PacketLike, ScapyPacket
 from sampleddetection.utils import FLAGS_TO_VAL
 
 # DEBUG: for counting
@@ -29,6 +30,12 @@ def argsies():
     ap = ArgumentParser()
     ap.add_argument("--pcap_path", default="./bigdata/Wednesday-WorkingHours.pcap")
     ap.add_argument("--csv_path", default="./bigdata/Wednesday.csv")
+    ap.add_argument(
+        "--filter",
+        type=str,
+        default="{}",
+        help="String that should be able to be literally evaluated as dictionary for filtering",
+    )
     ap.add_argument("-d", "--debug", action="store_true")
     ap.add_argument(
         "--columnns",
@@ -69,7 +76,30 @@ def read_pcap_global_header(pcap_file_path):
         print("Unknown PCAP format")
 
 
-def packet_parser(packet: Packet) -> List[Any]:
+def filter_pass(packet, filter: Dict[str, Any]):
+    pcklike = ScapyPacket(packet)
+    for k, v in filter.items():
+        # Use getattr to get the property of pcklike using the key k
+        property_value = getattr(pcklike, k, None)
+
+        # Now you can compare property_value with v or do whatever you need
+        if property_value != v:
+            return False  # or handle the mismatch as needed
+    return True  # If all properties match the filter values
+
+
+def filter_flow(packet, filter: Dict[str, Any]):
+    # Assume flow keys are here
+    reverse_dict = {
+        "src_ip": filter["dst_ip"],
+        "dst_ip": filter["src_ip"],
+        "src_port": filter["dst_port"],
+        "dst_port": filter["src_port"],
+    }
+    return filter_pass(packet, filter) or filter_pass(packet, reverse_dict)
+
+
+def packet_parser(packet: Packet, filter_dict: Dict[str, Any]) -> List[Any]:
     """
     Returns row that will be written into the csv file.
     """
@@ -84,14 +114,19 @@ def packet_parser(packet: Packet) -> List[Any]:
         ipv6_counter = ipv6_counter + 1
         return []  # We are not dealing with ipv6 (See original CICFlowMeter)
 
-    flag_bits = np.zeros(len(FLAGS_TO_VAL.values()), dtype=bool)
+    # For now we assume we are only filtering flows
+    if not filter_flow(packet, filter_dict):
+        return []
+
+    # flag_bits = np.zeros(len(FLAGS_TO_VAL.values()), dtype=bool)
+    flag_dict = {k: False for k, _ in FLAGS_TO_VAL.items()}
     src_ip, dst_ip, srcp, dstp = get_simple_tuple(ScapyPacket(packet))
 
     # TODO: theres likely an easier way to do this
     if "TCP" in packet:
-        for i, (_, v) in enumerate(FLAGS_TO_VAL.items()):
+        for i, (k, v) in enumerate(FLAGS_TO_VAL.items()):
             if packet["TCP"].flags & v != 0:
-                flag_bits[i] = True
+                flag_dict[k] = True
 
     layers = [str(l.__name__) for l in packet.layers()]
     # Append data
@@ -108,7 +143,7 @@ def packet_parser(packet: Packet) -> List[Any]:
         layers,
         packet["TCP"].window if data_protocol == "TCP" else 0,
         len(packet[data_protocol].payload),
-        flag_bits,
+        str(flag_dict),
     ]
     return row
 
@@ -133,7 +168,7 @@ def get_tresol():
         f"\n  Snap len {interface[1]}"
         f"\n  TSResol {interface[2]}"
     )
-    # Calculate actioal resolution
+    # Calculate actual resolution
     denominator = interface[2]
     return denominator
 
@@ -158,11 +193,13 @@ if __name__ == "__main__":
     cur_pack = caprdr.read_packet()
     all_rows = []
     bar = tqdm(total=13788878, desc="Reading packets")
+    filter_dict = ast.literal_eval(args.filter)
     # i = 0
     try:
         while cur_pack != None:
             # TODO create an index for flows as well.
-            row = packet_parser(cur_pack)
+            # 表示過不過
+            row = packet_parser(cur_pack, filter_dict)
             bar.update(1)
             # bar.set_description(f"{i} packets processed")
             if len(row) != 0:
@@ -170,6 +207,7 @@ if __name__ == "__main__":
             # i += 1
             # if i > 100:
             #     break
+            bar.set_description(f"Reading packets(Added {len(all_rows)})")
             try:
                 cur_pack = caprdr.read_packet()
             except EOFError:
