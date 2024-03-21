@@ -4,6 +4,17 @@ import os
 
 import numpy as np
 
+FLAGS_TO_VAL = {
+    "FIN": 0x01,
+    "SYN": 0x02,
+    "RST": 0x04,
+    "PSH": 0x08,
+    "ACK": 0x10,
+    "URG": 0x20,
+    "ECE": 0x40,
+    "CWR": 0x80,
+}
+
 
 def setup_logger(logger_name: str, logging_level=logging.INFO):
     """

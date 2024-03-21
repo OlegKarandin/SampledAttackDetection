@@ -78,7 +78,7 @@ class Flow:
         """
 
         flow_bytes = FlowBytes(self)
-        flag_count = FlagCount(self)
+        flag_count = FlagCount(self.packets)
         packet_count = PacketCount(self)
         packet_length = PacketLength(self)
         packet_time = PacketTime(self)
@@ -149,13 +149,23 @@ class Flow:
             "bwd_psh_flags": flag_count.has_flag("PSH", PacketDirection.REVERSE),
             "fwd_urg_flags": flag_count.has_flag("URG", PacketDirection.FORWARD),
             "bwd_urg_flags": flag_count.has_flag("URG", PacketDirection.REVERSE),
-            "fin_flag_cnt": flag_count.has_flag("FIN"),
-            "syn_flag_cnt": flag_count.has_flag("SYN"),
-            "rst_flag_cnt": flag_count.has_flag("RST"),
-            "psh_flag_cnt": flag_count.has_flag("PSH"),
-            "ack_flag_cnt": flag_count.has_flag("ACK"),
-            "urg_flag_cnt": flag_count.has_flag("URG"),
-            "ece_flag_cnt": flag_count.has_flag("ECE"),
+            "fin_has_flag": flag_count.has_flag("FIN"),
+            "syn_has_flag": flag_count.has_flag("SYN"),
+            "rst_has_flag": flag_count.has_flag("RST"),
+            "psh_has_flag": flag_count.has_flag("PSH"),
+            "ack_has_flag": flag_count.has_flag("ACK"),
+            "urg_has_flag": flag_count.has_flag("URG"),
+            "ece_has_flag": flag_count.has_flag("ECE"),
+            "cwr_has_flag": flag_count.has_flag("CWR"),
+            # Actual count
+            "fin_flag_cnt": flag_count.count("FIN"),
+            "syn_flag_cnt": flag_count.count("SYN"),
+            "rst_flag_cnt": flag_count.count("RST"),
+            "psh_flag_cnt": flag_count.count("PSH"),
+            "ack_flag_cnt": flag_count.count("ACK"),
+            "urg_flag_cnt": flag_count.count("URG"),
+            "ece_flag_cnt": flag_count.count("ECE"),
+            "cwr_flag_cnt": flag_count.count("CWR"),
             # Response Time
             "down_up_ratio": packet_count.get_down_up_ratio(),
             "pkt_size_avg": packet_length.get_avg(),

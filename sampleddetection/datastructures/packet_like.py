@@ -1,6 +1,6 @@
 import ast
 from abc import ABC, abstractmethod
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import pandas as pd
 from scapy.all import Packet
@@ -18,10 +18,10 @@ class PacketLike(ABC):
 
     @property
     @abstractmethod
-    def flags(self) -> List[str]:
+    def flags(self) -> Dict[str, bool]:
         """
         See `pcap_to_csv.py` file to understand the order
-        Should be ["TCP", "FIN", "SYN", "RST", "PSH", "ACK", "URG", "ECE", "CWR"]
+        Should be ["TCP": <bool>, "FIN": <bool>, "SYN": <bool>, "RST": <bool>, "PSH": <bool>, "ACK": <bool>, "URG": <bool>, "ECE": <bool>, "CWR": <bool>]
         """
         pass
 
@@ -164,16 +164,16 @@ class CSVPacket(PacketLike):
     def __init__(self, row: pd.Series):
         self.columns = row.index
         self.row: pd.Series = row
+        self._flags: Dict[str, bool] = ast.literal_eval(row["flags"])
 
     @property
     def time(self) -> float:
         return self.row["timestamp"]  # type:ignore
 
     @property
-    def flags(self) -> List[str]:
+    def flags(self) -> Dict[str, bool]:
         # boolean_list = {o: self.row["flags_mask"][i] for i, o in enumerate(order)}
-        boolean_list = [f for f in self.row["flags_mask"]]
-        return boolean_list  # type: ignore
+        return self._flags
         # take the list of booleans
 
     @property

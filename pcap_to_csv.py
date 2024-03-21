@@ -52,7 +52,7 @@ def argsies():
             "layers",
             "tcp_window",
             "payload_size",
-            "flags_mask",
+            "flags",
         ],
     )
 
