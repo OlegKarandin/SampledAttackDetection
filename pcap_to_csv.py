@@ -18,8 +18,8 @@ from sampleddetection.datastructures.context.packet_flow_key import (
     get_simple_tuple,
 )
 from sampleddetection.datastructures.packet_like import ScapyPacket
+from sampleddetection.utils import FLAGS_TO_VAL
 
-flags = ["FIN", "SYN", "RST", "PSH", "ACK", "URG", "ECE", "CWR"]
 # DEBUG: for counting
 ipv6_counter = 0
 # In order to reduce space I will place TCP as one of the flags, if set to False then its UDP
@@ -84,19 +84,16 @@ def packet_parser(packet: Packet) -> List[Any]:
         ipv6_counter = ipv6_counter + 1
         return []  # We are not dealing with ipv6 (See original CICFlowMeter)
 
-    flag_bits = np.zeros(len(flags), dtype=bool)
+    flag_bits = np.zeros(len(FLAGS_TO_VAL.values()), dtype=bool)
     src_ip, dst_ip, srcp, dstp = get_simple_tuple(ScapyPacket(packet))
 
+    # TODO: theres likely an easier way to do this
     if "TCP" in packet:
-        for i in range(1, len(flags)):
-            if flags[i] in str(packet.flags):
+        for i, (_, v) in enumerate(FLAGS_TO_VAL.items()):
+            if packet["TCP"].flags & v != 0:
                 flag_bits[i] = True
-    if "IP" not in packet:
-        print(f"Ip not found in packet, these are the layers {packet.layers}")
 
-    # get_layers
     layers = [str(l.__name__) for l in packet.layers()]
-    # print(packet.time)
     # Append data
     row = [
         src_ip,
@@ -131,10 +128,10 @@ def get_tresol():
 
     # Extract the if_tsresol option (if it exists)
     print(
-        f"We have \n"
-        f"\n\tLink Type {interface[0]}"
-        f"\n\tSnap len {interface[1]}"
-        f"\n\tTSResol {interface[2]}"
+        f"PCAP's interface information:"
+        f"\n  Link Type {interface[0]}"
+        f"\n  Snap len {interface[1]}"
+        f"\n  TSResol {interface[2]}"
     )
     # Calculate actioal resolution
     denominator = interface[2]
@@ -162,20 +159,25 @@ if __name__ == "__main__":
     all_rows = []
     bar = tqdm(total=13788878, desc="Reading packets")
     # i = 0
-    while cur_pack != None:
-        # TODO create an index for flows as well.
-        row = packet_parser(cur_pack)
-        bar.update(1)
-        # bar.set_description(f"{i} packets processed")
-        if len(row) != 0:
-            all_rows.append(row)
-        # i += 1
-        # if i > 100:
-        #     break
-        try:
-            cur_pack = caprdr.read_packet()
-        except EOFError:
-            break
+    try:
+        while cur_pack != None:
+            # TODO create an index for flows as well.
+            row = packet_parser(cur_pack)
+            bar.update(1)
+            # bar.set_description(f"{i} packets processed")
+            if len(row) != 0:
+                all_rows.append(row)
+            # i += 1
+            # if i > 100:
+            #     break
+            try:
+                cur_pack = caprdr.read_packet()
+            except EOFError:
+                break
+    except KeyboardInterrupt:
+        print(
+            "Was interrupted by keyboard will write what we managed to add to the list."
+        )
     # Now we turn it into a DataFrame and save it
 
     print("All records received, now turning into csv_path")
