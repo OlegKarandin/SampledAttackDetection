@@ -269,6 +269,82 @@ def test_has_flag(flowsesh: SampledFlowSession, pcap_path: str):
         assert v == truths[k], f"{k} flag count is incorrect"
 
 
+def test_downup_ratio(flowsesh: SampledFlowSession, pcap_path: str):
+    file_name_only = os.path.basename(pcap_path)
+    logger.debug(f"Ds wierd {file_name_only.replace('.pcap', '').split('_')}")
+    src_ip, dst_ip, src_port, dst_port = file_name_only.replace(".pcap", "").split("_")
+
+    cmdforward = f"tshark -r {pcap_path} -Y 'tcp and ip.src=={src_ip} and ip.dst=={dst_ip} and tcp.srcport=={src_port} and tcp.dstport=={dst_port}' | wc -l"
+    cmdbackward = f"tshark -r {pcap_path} -Y 'tcp and ip.src=={dst_ip} and ip.dst=={src_ip} and tcp.srcport=={dst_port} and tcp.dstport=={src_port}' | wc -l"
+
+    resultfwd = subprocess.run(
+        cmdforward,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        shell=True,
+    )
+    resultbwd = subprocess.run(
+        cmdbackward,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        shell=True,
+    )
+
+    if resultfwd.returncode != 0:
+        logger.error(f"Subcommand returned with error: {resultfwd}")
+
+    if resultbwd.returncode != 0:
+        logger.error(f"Subcommand returned with error: {resultbwd}")
+
+    truth = int(resultbwd.stdout.strip()) / int(resultfwd.stdout.strip())
+
+    flowsesh.get_data()
+    first_eg = next(iter(flowsesh.get_data().values()))
+    est_ratio = first_eg["down_up_ratio"]
+
+    assert pytest.approx(est_ratio, abs=1e-6) == truth
+
+
+def test_idle_times(
+    flowsesh: SampledFlowSession,
+    pcap_path: str,
+    active_timeout: float,
+    clump_timeout: float,
+):
+    flow = next(iter(flowsesh.flows.values()))
+
+    filename = os.path.basename(pcap_path)
+    test_path = os.path.dirname(os.path.abspath(__file__))
+
+    src_ip, dst_ip, src_port, dst_port = filename.replace(".pcap", "").split("_")
+
+    ident_tuple = ",".join([src_ip, dst_ip, src_port, dst_port])
+    inactive_sh_path = os.path.join(test_path, "inactive.sh")
+    cmd = f"""
+        sh {inactive_sh_path} {pcap_path} {ident_tuple} {active_timeout} {clump_timeout}
+        """
+    result = subprocess.run(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True
+    )
+    if result.returncode != 0:
+        logger.error(f"Subcommand returned with error: {result}")
+    first_eg = next(iter(flowsesh.get_data().values()))
+    est_idle_mean = first_eg["idle_mean"]
+    # result will give numbers separated by new line, here we take a mean of all of them
+    truth = sum([float(x) * 1e6 for x in result.stdout.strip().split("\n")]) / len(
+        result.stdout.strip().split("\n")
+    )
+
+    assert pytest.approx(est_idle_mean, abs=1e0) == truth
+
+
+# TODO: I'm just not very sure how helpful this static is or what is their correct use for it.
+# def test_window_size(flowsesh: SampledFlowSession, csv_path: str):
+#     pass
+
+
 @pytest.fixture
 def flowsesh(request) -> SampledFlowSession:
     csvreader = CSVReader(Path(request.config.getoption("--csvfile")))
@@ -294,6 +370,18 @@ def csv_path(request) -> str:
 def pcap_path(request) -> str:
     pcappath = request.config.getoption("--pcappath")
     return pcappath
+
+
+@pytest.fixture
+def active_timeout(request) -> int:
+    val = request.config.getoption("--active_timeout")
+    return val
+
+
+@pytest.fixture
+def clump_timeout(request) -> int:
+    val = request.config.getoption("--clump_timeout")
+    return val
 
 
 # @pytest.fixture
