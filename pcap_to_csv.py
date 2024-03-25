@@ -115,7 +115,7 @@ def packet_parser(packet: Packet, filter_dict: Dict[str, Any]) -> List[Any]:
         return []  # We are not dealing with ipv6 (See original CICFlowMeter)
 
     # For now we assume we are only filtering flows
-    if not filter_flow(packet, filter_dict):
+    if len(filter_dict) != 0 and not filter_flow(packet, filter_dict):
         return []
 
     # flag_bits = np.zeros(len(FLAGS_TO_VAL.values()), dtype=bool)
