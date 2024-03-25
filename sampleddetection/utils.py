@@ -52,6 +52,14 @@ def setup_logger(logger_name: str, logging_level=logging.INFO):
     return logger
 
 
+def clamp(val: float, max_val: float, min_val: float):
+    return max(min(val, max_val), min_val)
+
+
+def within(val: float, min_val: float, max_val: float):
+    return all([val <= max_val, val >= min_val])
+
+
 def unusable(reason: str, date: str):
     """Means to highlight a function that should be halted if called during a specific development branch"""
 

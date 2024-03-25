@@ -1,4 +1,4 @@
-from typing import Dict, NamedTuple
+from typing import Dict, List, NamedTuple
 
 from scapy.plist import PacketList
 
@@ -8,14 +8,17 @@ from sampleddetection.datastructures.flowsession import SampledFlowSession
 
 class State(NamedTuple):
     time_point: float
-    cur_frequency: float
+    window_skip: float
     window_length: float
     flow_sesh: SampledFlowSession
 
+    def sesh_to_tensor(self, relevant_datapoints: List[str]):
+        data = self.flow_sesh.get_data()
+
 
 class Action(NamedTuple):
-    window_length_delta: float
-    frequency_delta: float
+    winlength_delta: float
+    winskip_delta: float
 
 
 class RelevantStats(NamedTuple):

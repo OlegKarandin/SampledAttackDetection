@@ -4,6 +4,7 @@ from datetime import datetime
 from math import ceil
 from pathlib import Path
 from random import shuffle
+from time import time
 from typing import Tuple, Union
 
 import numpy as np
@@ -54,14 +55,15 @@ class DynamicWindowSampler:
 
         self.first_sniff_time = self.csvrdr.first_sniff_time
         self.last_sniff_time = self.csvrdr.last_sniff_time
-        self.max_idx = len(csvrdr.csv_df) - 1
+        self.max_idx = len(self.csvrdr.csv_df) - 1
 
     def sample(
         self, initial_time: float, window_skip: float, window_length: float
     ) -> SampledFlowSession:
         # ) -> pd.DataFrame:
         """
-        Mar 15, 2024
+        Will return a `SampledFlowSession` for a specific time window.
+        `SampledFlowSession.get_data()` will get you a dictionary of statistics for all flows in that window.
         """
         # packet_list = []
 
@@ -92,8 +94,6 @@ class DynamicWindowSampler:
 
             cur_time = next_stop + window_skip
             next_stop = cur_time + window_length
-
-        print("Here")
 
         return flow_session
 

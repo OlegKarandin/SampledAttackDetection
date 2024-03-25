@@ -7,6 +7,9 @@ from sampleddetection.datastructures.packet_like import PacketLike
 
 from .packet_direction import PacketDirection
 
+# Weird ordering
+FLOW_KEY_NAMES = ["dst_ip", "src_ip", "src_port", "dst_port"]
+
 
 def get_packet_flow_key(packet: PacketLike, direction: PacketDirection) -> tuple:
     """Creates a key signature for a packet.
