@@ -29,6 +29,19 @@ class PacketTime:
         ]
         return packet_times
 
+    @property
+    def first_ts(self):
+        return self.flow.packets[0][0].time
+
+    @property
+    def last_ts(self):
+        return self.flow.packets[-1][0].time
+
+    @staticmethod
+    def to_str(ts: float):
+        """Including till micro second"""
+        return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S %f")
+
     def get_packet_iat(self, packet_direction=None):
         if packet_direction is not None:
             packets = [

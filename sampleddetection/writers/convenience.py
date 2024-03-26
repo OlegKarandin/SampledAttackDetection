@@ -8,11 +8,14 @@ from sampleddetection.datastructures.flowsession import SampledFlowSession
 
 
 def save_to_csv(
-    sessions: List[SampledFlowSession], path: str, desired_features: List[str]
+    sessions: List[SampledFlowSession],
+    path: str,
+    desired_features: List[str],
+    overwrite: bool = False,
 ):
     # Ensure path does not exist
     assert (
-        Path(path).exists() is False
+        overwrite or Path(path).exists() is False
     ), f"Given path {path} already exists, delete before running"
     dir = os.path.dirname(path)
     os.makedirs(dir, exist_ok=True)

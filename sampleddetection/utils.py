@@ -1,6 +1,8 @@
 import json
 import logging
 import os
+import random
+from datetime import datetime
 
 import numpy as np
 
@@ -99,21 +101,55 @@ class NpEncoder(json.JSONEncoder):
         return super(NpEncoder, self).default(obj)
 
 
+def epoch_to_clean(epoch: float):
+    return (
+        datetime.fromtimestamp(epoch).strftime("%Y-%m-%d %H:%M:%S") if epoch else "None"
+    )
+
+
+def set_all_seeds(seed):
+    """
+    Set the seed for all possible random sources to ensure reproducible results.
+
+    Args:
+    seed (int): The seed value to use for all random number generators.
+    """
+    # Python's built-in random module
+    random.seed(seed)
+
+    # NumPy's random module
+    np.random.seed(seed)
+
+    # For Python 3.7 and later, individual numpy generator
+    rng = np.random.default_rng(seed)
+
+    # TensorFlow (not using atm)
+    # tf.random.set_seed(seed)
+
+    # PyTorch (if you're using it)
+    try:
+        import torch
+
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)  # if you are using multi-GPU.
+    except ImportError:
+        pass  # PyTorch is not installed
+    # For any other libraries that you might be using, set their random seed here
+    # Environment variables for some systems that use randomness
+    os.environ["PYTHONHASHSEED"] = str(seed)
+
+
 def get_statistics(alist: list):
     """Get summary statistics of a list"""
-    iat = dict()
+    iat = {"total" : 0, "max" : 0, "min" : 0, "mean" : 0, "std" : 0}
 
-    if len(alist) > 1:
+    # TODO: Feeling a bit funky about just setting things to 0 if the list is empty
+    if len(alist) >= 1:
         iat["total"] = sum(alist)
         iat["max"] = max(alist)
         iat["min"] = min(alist)
         iat["mean"] = np.mean(alist)
+    if len(alist) > 1:
         iat["std"] = np.sqrt(np.var(alist))
-    else:
-        iat["total"] = 0
-        iat["max"] = 0
-        iat["min"] = 0
-        iat["mean"] = 0
-        iat["std"] = 0
 
     return iat

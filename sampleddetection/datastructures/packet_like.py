@@ -1,4 +1,5 @@
 import ast
+import json
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 
@@ -76,6 +77,10 @@ class PacketLike(ABC):
     @property
     @abstractmethod
     def __dict__(self) -> Dict:
+        pass
+
+    @abstractmethod
+    def __str__(self) -> str:
         pass
 
 
@@ -217,3 +222,7 @@ class CSVPacket(PacketLike):
 
     def __dict__(self) -> Dict:
         return self.row.to_dict()  # type: ignore
+
+    def __str__(self) -> str:
+        # Pretty dump
+        return json.dumps(self.__dict__(), indent=4)

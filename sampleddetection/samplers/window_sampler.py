@@ -15,13 +15,7 @@ from sampleddetection.datastructures.context.packet_flow_key import get_packet_f
 from sampleddetection.datastructures.flowsession import SampledFlowSession
 from sampleddetection.readers.readers import AbstractReader, CaptureReader, CSVReader
 
-from ..utils import deprecated, setup_logger
-
-# import PcaketList
-# MAX_MEM = 250e6  # GB This is as mcuh as we want in ram at once
-# MAX_MEM = 100e6  # GB This is as mcuh as we want in ram at once
-# MAX_MEM = 2 ** (26.575)
-# MAX_MEM = 2 ** (23.25)
+from ..utils import deprecated, epoch_to_clean, setup_logger
 
 
 class DynamicWindowSampler:
@@ -40,7 +34,7 @@ class DynamicWindowSampler:
             if path != None:
                 assert path.exists() and path_str.endswith(  # type: ignore
                     ".csv"
-                ), "Path does not exist or is invalid"
+                ), f"Path {path} does not exist or is invalid"
 
                 self.logger.info(f"Loading the capture file {path_str}")
                 if not path.exists():
@@ -76,21 +70,21 @@ class DynamicWindowSampler:
             sampwindow_length=window_length, sample_initpos=initial_time
         )
 
-        idx_curpack = binary_search(self.csvrdr, initial_time)
+        idx_curpack = binary_search(self.csvrdr, cur_time)
+        curpack = self.csvrdr[idx_curpack]
+        self.logger.debug(f"starting at time {cur_time}")
 
         for _ in range(self.NUM_WINDOWS_PER_SAMPLE):
-            # self.logger.info(
-            #     f"Sampling for one window cur_time={cur_time}, next_stop = {next_stop}"
-            # )
-            while cur_time < next_stop and idx_curpack <= self.max_idx:
+            while curpack.time < next_stop and idx_curpack <= self.max_idx:
+                self.logger.debug(
+                    f"at idx {idx_curpack} we see a timestamp of {curpack.time}({epoch_to_clean(curpack.time)})"
+                )
                 # self.logger.debug(f"cur_time {cur_time} stopping at {next_stop}")
-                curpack = self.csvrdr[idx_curpack]
-                cur_time = curpack.time
-                if cur_time < next_stop:
-                    # packet_list.append(curpack)
-                    flow_session.on_packet_received(curpack)
+                flow_session.on_packet_received(curpack)
 
                 idx_curpack += 1
+                curpack = self.csvrdr[idx_curpack]
+                cur_time = curpack.time
 
             cur_time = next_stop + window_skip
             next_stop = cur_time + window_length

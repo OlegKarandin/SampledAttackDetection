@@ -23,7 +23,8 @@ class SampledFlowSession:
 
     def __init__(self, *args, **kwargs):
         self.flows: Dict[Tuple[Tuple, int], Flow] = {}
-        self.logger = setup_logger(self.__class__.__name__)
+        # WARN: this can lead to too many files being open. Careful there
+        # self.logger = setup_logger(self.__class__.__name__)
         self.packets_count = 0
 
         # Sample Variables
@@ -117,7 +118,7 @@ class SampledFlowSession:
 
     def get_data(self) -> Dict[Tuple, Dict]:
         info = {}
-        self.logger.info(f"We have {len(self.flows)} to go through")
+        # self.logger.info(f"We have {len(self.flows)} to go through")
         if len(self.flows) > 0:
             for k, v in self.flows.items():
                 info[k] = v.get_data()
