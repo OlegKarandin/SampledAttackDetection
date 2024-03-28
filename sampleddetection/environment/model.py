@@ -32,7 +32,7 @@ class Environment:
     PREVIOUS_AMNT_SAMPLES = 12
     FLOW_MEMORY = 12  # Per-flow packet budget
     MIN_FLOW_MEMORY = 9999999999  # Maximum amount of flows to store.
-    DAY_RIGHT_MARGIN = 0.80
+    DAY_RIGHT_MARGIN = 0.8  # CHECK: Must be equal 1 at deployment
 
     def __init__(
         self,
@@ -140,7 +140,7 @@ class Environment:
         else:
             assert within(
                 starting_time, min_time, max_time * self.DAY_RIGHT_MARGIN
-            ), f"Stating time {starting_time} out of range"
+            ), f"Stating time {starting_time} out of range [{min_time},{max_time}]"
             self.starting_time = starting_time
 
         # Winskip

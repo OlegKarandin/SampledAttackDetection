@@ -141,7 +141,7 @@ def set_all_seeds(seed):
 
 def get_statistics(alist: list):
     """Get summary statistics of a list"""
-    iat = {"total" : 0, "max" : 0, "min" : 0, "mean" : 0, "std" : 0}
+    iat = {"total": 0, "max": 0, "min": 0, "mean": 0, "std": 0}
 
     # TODO: Feeling a bit funky about just setting things to 0 if the list is empty
     if len(alist) >= 1:

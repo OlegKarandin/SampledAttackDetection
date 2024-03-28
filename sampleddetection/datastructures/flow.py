@@ -64,6 +64,9 @@ class Flow:
         self.backward_bulk_size = 0
         self.backward_bulk_size_tmp = 0
 
+        # Benign or type of malign
+        self.label = "Benign"
+
     def get_data(self) -> dict:
         """This method obtains the values of the features extracted from each flow.
 
@@ -212,6 +215,9 @@ class Flow:
         data["subflow_fwd_byts"] = data["totlen_fwd_pkts"]
         data["subflow_bwd_byts"] = data["totlen_bwd_pkts"]
 
+        # Finally the label
+        data["label"] = self.label
+
         return data
 
     def add_packet(self, packet: PacketLike, direction: PacketDirection) -> None:
@@ -222,6 +228,17 @@ class Flow:
             direction: The direction the packet is going in that flow
 
         """
+        # Add Label
+        if packet.label != "Benign":
+            if self.label == "Benign":
+                self.label = packet.label
+            elif self.label != "Benign" and packet.label != self.label:
+                # TODO: For Sanity Check only, streamline once sure
+                raise ValueError(
+                    f"We have flow already labeled as {self.label} and new packet labeled as {packet.label}"
+                )
+
+        # Normal Operations
         self.packets.append((packet, direction))
 
         self.update_flow_bulk(packet, direction)
