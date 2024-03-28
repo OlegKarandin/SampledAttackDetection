@@ -1,0 +1,40 @@
+{
+  "Wednesday": {
+    "DoS_Slowloris": {
+      "start_time": 1499258820,
+      "end_time": 1499260259.0, 
+      "attacker": "172.16.0.1",
+      "victim": "205.174.165.68",
+      "victim_local": "192.168.10.50"
+    },
+    "DoS_Slowhttptest": {
+      "start_time": 1499260440,
+      "end_time": 1499261759,
+      "attacker": "172.16.0.1",
+      "victim": "205.174.165.68",
+      "victim_local": "192.168.10.50"
+    },
+    "DoS_Hulk": {
+      "start_time": 1499262180,
+      "end_time": 1499263259,
+      "attacker": "172.16.0.1",
+      "victim": "205.174.165.68",
+      "victim_local": "192.168.10.50"
+    },
+    "DoS_GoldenEye": {
+      "start_time": 1499263800,
+      "end_time": 1499264639,
+      "attacker": "172.16.0.1",
+      "victim": "205.174.165.68",
+      "victim_local": "192.168.10.50"
+    },
+    "HeartBleed": {
+      "start_time": 1499278320,
+      "end_time": 1499279579,
+      "attacker": "172.16.0.1",
+      "attacker": "205.174.165.73",
+      "victim": "205.174.165.66",
+      "victim_local": "192.168.10.51"
+    }
+  }
+}

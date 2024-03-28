@@ -83,6 +83,11 @@ class PacketLike(ABC):
     def __str__(self) -> str:
         pass
 
+    @property
+    @abstractmethod
+    def label(self) -> str:
+        pass
+
 
 class ScapyPacket(PacketLike):
     """
@@ -164,6 +169,13 @@ class ScapyPacket(PacketLike):
             "header_size": self.header_size,
         }
 
+    @property
+    def label(self) -> str:
+        return "Benign"  # No label can be associated from with ScapyPacket
+
+    def __str__(self) -> str:
+        return json.dumps(self.__dict__(), indent=4)
+
 
 class CSVPacket(PacketLike):
     def __init__(self, row: pd.Series):
@@ -226,3 +238,7 @@ class CSVPacket(PacketLike):
     def __str__(self) -> str:
         # Pretty dump
         return json.dumps(self.__dict__(), indent=4)
+
+    @property
+    def label(self) -> str:
+        return self.row["label"]

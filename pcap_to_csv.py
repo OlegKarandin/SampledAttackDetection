@@ -4,11 +4,13 @@
 import ast
 import json
 from argparse import ArgumentParser
+from datetime import datetime
 from typing import Any, Dict, List
 
 import debugpy
 import numpy as np
 import pandas as pd
+import pytz
 from scapy.all import Packet, PcapNgReader, PcapReader, rdpcap, wrpcap
 from scapy.layers.inet import IP, TCP, UDP
 from scapy.layers.inet6 import IPv6
@@ -37,6 +39,7 @@ def argsies():
         help="String that should be able to be literally evaluated as dictionary for filtering",
     )
     ap.add_argument("-d", "--debug", action="store_true")
+    ap.add_argument("--labels", default="./data/label_data.json")
     ap.add_argument(
         "--columnns",
         default=[
@@ -53,8 +56,10 @@ def argsies():
             "tcp_window",
             "payload_size",
             "flags",
+            "label",
         ],
     )
+    ap.add_argument("--bar_update", default=1000)
 
     return ap.parse_args()
 
@@ -76,8 +81,7 @@ def read_pcap_global_header(pcap_file_path):
         print("Unknown PCAP format")
 
 
-def filter_pass(packet, filter: Dict[str, Any]):
-    pcklike = ScapyPacket(packet)
+def filter_pass(pcklike: PacketLike, filter: Dict[str, Any]):
     for k, v in filter.items():
         # Use getattr to get the property of pcklike using the key k
         property_value = getattr(pcklike, k, None)
@@ -88,7 +92,7 @@ def filter_pass(packet, filter: Dict[str, Any]):
     return True  # If all properties match the filter values
 
 
-def filter_flow(packet, filter: Dict[str, Any]):
+def filter_flow(packet: PacketLike, filter: Dict[str, Any]):
     # Assume flow keys are here
     reverse_dict = {
         "src_ip": filter["dst_ip"],
@@ -99,7 +103,47 @@ def filter_flow(packet, filter: Dict[str, Any]):
     return filter_pass(packet, filter) or filter_pass(packet, reverse_dict)
 
 
-def packet_parser(packet: Packet, filter_dict: Dict[str, Any]) -> List[Any]:
+def get_packet_label(label: dict, packet: PacketLike, day: str) -> str:
+    """Label as in classification label"""
+    for k, a in label[day].items():
+        if (
+            packet.time >= a["start_time"]
+            and packet.time <= a["end_time"]
+            and packet.src_ip == a["attacker"]
+            and packet.dst_ip == a["victim_local"]
+        ):
+            return k
+
+    return "Benign"
+
+
+def show_timewindows(attacks: Dict, timezone: str = "Etc/GMT+3"):
+    print("Your time windows will be:")
+    utc_minus_3 = pytz.timezone(timezone)
+    for attack, specs in attacks.items():
+        start = specs["start_time"]
+        end = specs["end_time"]
+
+        # Conver to UTC-3
+        start_humanformat = datetime.utcfromtimestamp(int(start))
+        end_humanformat = datetime.utcfromtimestamp(int(end))
+
+        utc3_start = (
+            start_humanformat.replace(tzinfo=pytz.utc)
+            .astimezone(utc_minus_3)
+            .strftime("%Y-%m-%d %H:%M:%S")
+        )
+        utc3_end = (
+            end_humanformat.replace(tzinfo=pytz.utc)
+            .astimezone(utc_minus_3)
+            .strftime("%Y-%m-%d %H:%M:%S")
+        )
+        print(f"{attack} Window: \n\tFr: {utc3_start}\n\tTo: {utc3_end}")
+
+
+def packet_parser(
+    packet: Packet, filter_dict: Dict[str, Any], labels: Dict
+) -> List[Any]:
     """
     Returns row that will be written into the csv file.
     """
@@ -109,13 +153,15 @@ def packet_parser(packet: Packet, filter_dict: Dict[str, Any]) -> List[Any]:
     global ipv6_counter
     data_protocol = "TCP" if "TCP" in packet else "UDP"
 
+    packet_like = ScapyPacket(packet)
+
     # flag_bits.setall(False)
     if "IPv6" in packet:
         ipv6_counter = ipv6_counter + 1
         return []  # We are not dealing with ipv6 (See original CICFlowMeter)
 
     # For now we assume we are only filtering flows
-    if len(filter_dict) != 0 and not filter_flow(packet, filter_dict):
+    if len(filter_dict) != 0 and not filter_flow(packet_like, filter_dict):
         return []
 
     # flag_bits = np.zeros(len(FLAGS_TO_VAL.values()), dtype=bool)
@@ -144,6 +190,7 @@ def packet_parser(packet: Packet, filter_dict: Dict[str, Any]) -> List[Any]:
         packet["TCP"].window if data_protocol == "TCP" else 0,
         len(packet[data_protocol].payload),
         str(flag_dict),
+        get_packet_label(labels, packet_like, "Wednesday"),
     ]
     return row
 
@@ -182,6 +229,9 @@ if __name__ == "__main__":
         debugpy.wait_for_client()
         print("Client connecting. Debugging...")
 
+    # Get Labels dictionary(json_file)
+    labels = json.load(open(args.labels, "r"))
+
     # Get first four bytes of args.pcap_path
     magic_bytes = open(args.pcap_path, "rb").read(4)
     parsing_metadata = {"magin_bytes": "0x" + magic_bytes.hex()}
@@ -189,25 +239,42 @@ if __name__ == "__main__":
     resolution = get_tresol()
     parsing_metadata["time_resol(denominator)"] = resolution
 
+    # Ensure Label Data is correct
+    show_timewindows(labels["Wednesday"])
+
     caprdr = PcapNgReader(str(args.pcap_path))  # type: ignore
     cur_pack = caprdr.read_packet()
     all_rows = []
     bar = tqdm(total=13788878, desc="Reading packets")
     filter_dict = ast.literal_eval(args.filter)
-    # i = 0
+
+    # Change this if necessary on your end
+    i = 0
+    utc_minus_3 = pytz.timezone("Etc/GMT+3")
     try:
         while cur_pack != None:
             # TODO create an index for flows as well.
+
             # 表示過不過
-            row = packet_parser(cur_pack, filter_dict)
-            bar.update(1)
-            # bar.set_description(f"{i} packets processed")
+            row = packet_parser(cur_pack, filter_dict, labels)
             if len(row) != 0:
                 all_rows.append(row)
-            # i += 1
-            # if i > 100:
-            #     break
-            bar.set_description(f"Reading packets(Added {len(all_rows)})")
+
+            cur_time = int(cur_pack.time)
+            cur_time_human = datetime.utcfromtimestamp(int(cur_time))
+            local_datetime = (
+                cur_time_human.replace(tzinfo=pytz.utc)
+                .astimezone(utc_minus_3)
+                .strftime("%Y-%m-%d %H:%M:%S")
+            )
+
+            if (i % args.bar_update) == 0:
+                bar.set_description(
+                    f"Reading packets (Time {local_datetime})(Added {i} rows)"
+                )
+
+            bar.update(1)
+            i += 1
             try:
                 cur_pack = caprdr.read_packet()
             except EOFError:

@@ -93,6 +93,10 @@ class Flow:
         idle_stat = get_statistics(self.idle)
 
         data = {
+            # Some Debugging information
+            "start_ts": packet_time.first_ts,
+            "start_timestamp": packet_time.to_str(packet_time.first_ts),
+            "end_timestamp": packet_time.to_str(packet_time.last_ts),
             # Basic IP information
             "src_ip": self.src_ip,
             "dst_ip": self.dest_ip,
