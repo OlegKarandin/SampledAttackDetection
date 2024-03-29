@@ -52,18 +52,32 @@ class DynamicWindowSampler:
         self.max_idx = len(self.csvrdr.csv_df) - 1
 
     def sample(
-        self, initial_time: float, window_skip: float, window_length: float
+        self,
+        initial_time: float,
+        window_skip: float,
+        window_length: float,
+        initial_precise: bool = False,
     ) -> SampledFlowSession:
         # ) -> pd.DataFrame:
         """
         Will return a `SampledFlowSession` for a specific time window.
         `SampledFlowSession.get_data()` will get you a dictionary of statistics for all flows in that window.
+        Parameters
+        ~~~~~~~~~~
+            - initial_precise: Whether we shoudl start precisely at the provided time or at the closest packet to it
         """
         # packet_list = []
 
-        cur_time = (
-            initial_time + window_skip
-        )  # Assumes that we will start `window_skip` after inference
+        idx_firstpack = binary_search(self.csvrdr, initial_time)
+        if initial_precise:
+            cur_time = (
+                initial_time + window_skip
+            )  # Assumes that we will start `window_skip` after inference
+        else:
+            cur_time = (
+                self.csvrdr[idx_firstpack].time - 1e-7
+            )  # Assuming micro sec packet capture
+
         next_stop = cur_time + window_length
 
         flow_session = SampledFlowSession(
