@@ -7,15 +7,15 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
-from sampleddetection.common_lingo import Action, State
-from sampleddetection.datastructures.flowsession import SampledFlowSession
-from sampleddetection.environment.agents import AgentLike, BaselineAgent, RLAgent
+# from .agents import AgentLike, BaselineAgent, RLAgent
 from sampleddetection.samplers.window_sampler import (
     DynamicWindowSampler,
     UniformWindowSampler,
 )
 
+from ..datastructures.flowsession import SampledFlowSession
 from ..utils import clamp, setup_logger, within
+from .datastructures import Action, State
 
 
 class Environment:
@@ -32,7 +32,7 @@ class Environment:
     PREVIOUS_AMNT_SAMPLES = 12
     FLOW_MEMORY = 12  # Per-flow packet budget
     MIN_FLOW_MEMORY = 9999999999  # Maximum amount of flows to store.
-    DAY_RIGHT_MARGIN = 0.8  # CHECK: Must be equal 1 at deployment
+    DAY_RIGHT_MARGIN = 1  # CHECK: Must be equal 1 at deployment
 
     def __init__(
         self,
