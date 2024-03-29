@@ -62,6 +62,7 @@ class DynamicWindowSampler:
         """
         Will return a `SampledFlowSession` for a specific time window.
         `SampledFlowSession.get_data()` will get you a dictionary of statistics for all flows in that window.
+
         Parameters
         ~~~~~~~~~~
             - initial_precise: Whether we shoudl start precisely at the provided time or at the closest packet to it
@@ -84,25 +85,32 @@ class DynamicWindowSampler:
             sampwindow_length=window_length, sample_initpos=initial_time
         )
 
-        idx_curpack = binary_search(self.csvrdr, cur_time)
-        curpack = self.csvrdr[idx_curpack]
+        curpack = self.csvrdr[idx_firstpack]
         self.logger.debug(f"starting at time {cur_time}")
 
+        idx_curpack = idx_firstpack
         for _ in range(self.NUM_WINDOWS_PER_SAMPLE):
-            while curpack.time < next_stop and idx_curpack <= self.max_idx:
+            while (
+                idx_curpack < self.max_idx and self.csvrdr[idx_curpack].time < next_stop
+            ):
+                curpack = self.csvrdr[idx_curpack]
                 self.logger.debug(
                     f"at idx {idx_curpack} we see a timestamp of {curpack.time}({epoch_to_clean(curpack.time)})"
                 )
                 # self.logger.debug(f"cur_time {cur_time} stopping at {next_stop}")
+                # self.logger.debug(
+                #     f"Packet at time {cur_time} has label {ATTACK_TO_STRING[curpack.label]}"
+                # )
                 flow_session.on_packet_received(curpack)
-
                 idx_curpack += 1
-                curpack = self.csvrdr[idx_curpack]
-                cur_time = curpack.time
 
+            # TODO: Create a check to ensure we are not going over the margin here
             cur_time = next_stop + window_skip
             next_stop = cur_time + window_length
 
+        # self.logger.debug(
+        #     f"Size of these flows is {str([len(f) for f in flow_session.flows.values()])}. "
+        # )
         return flow_session
 
     @deprecated(
