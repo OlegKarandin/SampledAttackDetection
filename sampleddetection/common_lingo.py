@@ -1,26 +1,58 @@
+# Import Enum and Make an Enum out of all possible attacks from the CIC IDC 2017 dataset
+# This will be used to determine the possible actions for the RL agent.
+from enum import Enum, auto
 from typing import Dict, List, NamedTuple
 
 from scapy.plist import PacketList
 
-from sampleddetection.datastructures.flow import Flow
-from sampleddetection.datastructures.flowsession import SampledFlowSession
+from sampleddetection.utils import unusable
 
 
-class State(NamedTuple):
-    time_point: float
-    window_skip: float
-    window_length: float
-    flow_sesh: SampledFlowSession
+class Attack(Enum):
+    BENIGN = auto()
+    SLOWLORIS = auto()
+    SLOWHTTPTEST = auto()
+    HULK = auto()
+    GOLDENEYE = auto()
+    HEARTBLEED = auto()
+    # CHECK: Not so sure about these ones below
+    WEB_BRUTEFORCE = auto()
+    XSS = auto()
+    SQL_INJECTION = auto()
+    DROPBOX = auto()
+    COOLDISK = auto()
+    PORTSCAN_NMAPP = auto()
+    BOTNET_ARES = auto()
+    PORT_SCAN = auto()
+    DDOS_LOIT = auto()
+    GENERAL = auto()
 
-    def sesh_to_tensor(self, relevant_datapoints: List[str]):
-        data = self.flow_sesh.get_data()
+
+# Create a Dictionary to string label
+ATTACK_TO_STRING: Dict[Enum, str] = {
+    Attack.BENIGN: "Benign",
+    Attack.SLOWLORIS: "DoS_Slowloris",
+    # TODO: (SUPER) : Fill the later with universal labels
+    Attack.SLOWHTTPTEST: "SLOWHTTPTEST",
+    Attack.HULK: "HULK",
+    Attack.GOLDENEYE: "GOLDENEYE",
+    Attack.HEARTBLEED: "HEARTBLEED",
+    Attack.WEB_BRUTEFORCE: "WEB_BRUTEFORCE",
+    Attack.XSS: "XSS",
+    Attack.SQL_INJECTION: "SQL_INJECTION",
+    Attack.DROPBOX: "DROPBOX",
+    Attack.COOLDISK: "COOLDISK",
+    Attack.PORTSCAN_NMAPP: "PORTSCAN_NMAPP",
+    Attack.BOTNET_ARES: "BOTNET_ARES",
+    Attack.PORT_SCAN: "PORT_SCAN",
+    Attack.DDOS_LOIT: "DDOS_LOIT",
+    Attack.GENERAL: "General",
+}
+
+STRING_TO_ATTACKS: Dict[str, Attack] = {v: k for k, v in ATTACK_TO_STRING.items()}  # type: ignore
 
 
-class Action(NamedTuple):
-    winlength_delta: float
-    winskip_delta: float
-
-
+@unusable(reason="Just never got used", date="Mar 29, 2024")
 class RelevantStats(NamedTuple):
     fwd_Packet_Length_Max: int
     fwd_Packet_Length_Min: int

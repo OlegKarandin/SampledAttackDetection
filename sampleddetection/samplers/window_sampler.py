@@ -10,11 +10,11 @@ from typing import Tuple, Union
 import numpy as np
 from tqdm import tqdm
 
-from sampleddetection.common_lingo import RelevantStats
 from sampleddetection.datastructures.context.packet_flow_key import get_packet_flow_key
 from sampleddetection.datastructures.flowsession import SampledFlowSession
 from sampleddetection.readers.readers import AbstractReader, CaptureReader, CSVReader
 
+from ..common_lingo import ATTACK_TO_STRING
 from ..utils import deprecated, epoch_to_clean, setup_logger
 
 

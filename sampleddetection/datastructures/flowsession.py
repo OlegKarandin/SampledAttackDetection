@@ -2,11 +2,13 @@
 @sourced from: https://github.com/hieulw/cicflowmeter
 """
 
+from enum import Enum
 from typing import Dict, Tuple, Union
 
 from scapy.packet import Packet
 from scapy.sessions import DefaultSession
 
+from sampleddetection.common_lingo import ATTACK_TO_STRING, Attack
 from sampleddetection.datastructures.packet_like import PacketLike
 from sampleddetection.utils import setup_logger, unusable
 
@@ -109,6 +111,13 @@ class SampledFlowSession:
 
         return True
 
+    def flow_label_distribution(self) -> Dict[Enum, int]:
+        labels = {enum: 0 for enum, label in ATTACK_TO_STRING.items()}
+        for _, flow in self.flows.items():
+            flabel = flow.label
+            labels[flabel] += 1
+        return labels
+
     # property
     def num_flows(self) -> int:
         return len(self.flows)
@@ -125,10 +134,11 @@ class SampledFlowSession:
         return info
 
 
+@unusable(reason="No longer using scapy sniffers", date="< Mar 29, 2024")
 def generate_session_class(output_mode, output_file, verbose):
     return type(
         "NewFlowSession",
-        (FlowSession,),
+        (FlowSession,),  # type: ignore
         {
             "output_mode": output_mode,
             "output_file": output_file,

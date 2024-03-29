@@ -6,6 +6,8 @@ from typing import Any, Dict, List
 import pandas as pd
 from scapy.all import Packet
 
+from ..common_lingo import ATTACK_TO_STRING, STRING_TO_ATTACKS, Attack
+
 # The order in which I stored them in the file
 # TODO:: Remove this hardcoded danger.
 order = ["FIN", "SYN", "RST", "PSH", "ACK", "URG", "ECE", "CWR"]
@@ -85,7 +87,7 @@ class PacketLike(ABC):
 
     @property
     @abstractmethod
-    def label(self) -> str:
+    def label(self) -> Attack:
         pass
 
 
@@ -170,8 +172,8 @@ class ScapyPacket(PacketLike):
         }
 
     @property
-    def label(self) -> str:
-        return "Benign"  # No label can be associated from with ScapyPacket
+    def label(self) -> Attack:
+        return Attack.BENIGN  # No label can be associated from with ScapyPacket
 
     def __str__(self) -> str:
         return json.dumps(self.__dict__(), indent=4)
@@ -240,5 +242,5 @@ class CSVPacket(PacketLike):
         return json.dumps(self.__dict__(), indent=4)
 
     @property
-    def label(self) -> str:
-        return self.row["label"]
+    def label(self) -> Attack:
+        return STRING_TO_ATTACKS[self.row["label"]]

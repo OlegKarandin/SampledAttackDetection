@@ -5,6 +5,7 @@ from scapy.all import Packet
 
 from sampleddetection.datastructures.packet_like import PacketLike
 
+from ..common_lingo import ATTACK_TO_STRING, STRING_TO_ATTACKS, Attack
 from ..utils import get_statistics
 from . import constants
 from .context import packet_flow_key
@@ -65,7 +66,7 @@ class Flow:
         self.backward_bulk_size_tmp = 0
 
         # Benign or type of malign
-        self.label = "Benign"
+        self.label: Attack = Attack.BENIGN
 
     def get_data(self) -> dict:
         """This method obtains the values of the features extracted from each flow.
@@ -216,7 +217,7 @@ class Flow:
         data["subflow_bwd_byts"] = data["totlen_bwd_pkts"]
 
         # Finally the label
-        data["label"] = self.label
+        data["label"] = ATTACK_TO_STRING[self.label]
 
         return data
 
@@ -229,10 +230,10 @@ class Flow:
 
         """
         # Add Label
-        if packet.label != "Benign":
-            if self.label == "Benign":
+        if packet.label != Attack.BENIGN:
+            if self.label == Attack.BENIGN:
                 self.label = packet.label
-            elif self.label != "Benign" and packet.label != self.label:
+            elif self.label != Attack.BENIGN and packet.label != self.label:
                 # TODO: For Sanity Check only, streamline once sure
                 raise ValueError(
                     f"We have flow already labeled as {self.label} and new packet labeled as {packet.label}"
@@ -377,3 +378,6 @@ class Flow:
     @property
     def duration(self):
         return self.latest_timestamp - self.start_timestamp
+
+    def __len__(self):
+        return len(self.packets)
