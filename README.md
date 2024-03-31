@@ -22,6 +22,12 @@ Scritps:
 
 1. `./windowed/` Entry point for sample experiments
 
+# Requirements
+
+Python libraries may be found in `requirements.txt`.
+
+In order to run `pytest ./test` you must ensure your hell instance has `tshark` in its `$PATH`.
+
 # Additional Requirements
 
 Outside of those listed in `requirements.txt` you will also want to download those

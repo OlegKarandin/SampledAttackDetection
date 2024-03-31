@@ -5,27 +5,23 @@ This script takes idea of @inspiration and tries to see if can detect
 presence of attack with a smaller amount of data.
 """
 import argparse
-import json
 import logging
-import pickle
 from pathlib import Path
 from typing import List
 
 import debugpy
-import joblib
 import numpy as np
 import sklearn.metrics as mt
 import torch
-from tqdm import tqdm
 
-from sampleddetection.rl.model import Environment
-
+from sampleddetection.common_lingo import Action, State
+from sampleddetection.environment.agents import AgentLike, RLAgent
+from sampleddetection.environment.model import Environment
 # %% Import parsers
-from sampleddetection.samplers.window_sampler import (
-    DynamicWindowSampler,
-    UniformWindowSampler,
-)
-from sampleddetection.statistics.window_statistics import flow_to_stats, get_flows
+from sampleddetection.samplers.window_sampler import (DynamicWindowSampler,
+                                                      UniformWindowSampler)
+from sampleddetection.statistics.window_statistics import (flow_to_stats,
+                                                           get_flows)
 from sampleddetection.utils import setup_logger
 
 # Set up all random seeds to be the same
@@ -63,6 +59,33 @@ def get_args() -> argparse.Namespace:
         action="store_true",
         default=False,
     )
+    argparsr.add_argument(
+        "--features",
+        nargs="+",
+        default=[
+            "fwd_pkt_len_max",
+            "fwd_pkt_len_min",
+            "fwd_pkt_len_mean",
+            "bwd_pkt_len_max",
+            "bwd_pkt_len_min",
+            "bwd_pkt_len_mean",
+            "flow_byts_s",
+            "flow_pkts_s",
+            "flow_iat_mean",
+            "flow_iat_max",
+            "flow_iat_min",
+            "fwd_iat_mean",
+            "fwd_iat_max",
+            "fwd_iat_min",
+            "bwd_iat_max",
+            "bwd_iat_min",
+            "bwd_iat_mean",
+            "pkt_len_min",
+            "pkt_len_max",
+            "pkt_len_mean",
+        ],
+        help="Which statistics to give the model to work with.",
+    )
 
     # Warn that the pcap_path argument is deprecated and should not be used unless sure
 
@@ -94,6 +117,7 @@ def sanitize_args(args: argparse.Namespace):
 def training_loop(
     environment: Environment,
     episode_length: int,
+    agent: AgentLike,
     episodes: int = 1000,
 ):
     """
@@ -110,8 +134,10 @@ def training_loop(
     logger.info(f"Starting the sampling with the lowest time {lowest_time}")
     # Start Environment
     # episodes_bar = tqdm(range(episodes), desc="Training over episodes")
+    init_states: List[State] = environment.reset(lowest_time)
     for episode in range(episodes):
-        cur_state = environment.reset(lowest_time)
+        # Form Tensor Observation
+
         logger.info("Done with one episode")
         exit()  # TOREM: once `reset()` works well
         # Get Initial State
@@ -119,6 +145,11 @@ def training_loop(
     # Pick a place to start at random.
 
     # Just let the model decide its own training-rate paradigm.
+
+
+def test_mechanism(environment):
+    # We just sample from the day for a specific time skip and time 
+    
 
 
 if __name__ == "__main__":
@@ -134,28 +165,7 @@ if __name__ == "__main__":
         debugpy.wait_for_client()
         logger.info("Client connected, debugging...")
 
-    features_names = [
-        "Fwd Packet Length Max",
-        "Fwd Packet Length Min",
-        "Fwd Packet Length Mean",
-        "Bwd Packet Length Max",
-        "Bwd Packet Length Min",
-        "Bwd Packet Length Mean",
-        "Flow Bytes/s",
-        "Flow Packets/s",
-        "Flow IAT Mean",
-        "Flow IAT Max",
-        "Flow IAT Min",
-        "Fwd IAT Mean" "Fwd IAT Max",
-        "Fwd IAT Min",
-        "Bwd IAT Mean",
-        "Bwd IAT Max",
-        "Bwd IAT Min",
-        "Min Packet Length",
-        "Max Packet Length",
-        "Packet Length Mean",
-    ]
-
+    # TOREM:
     # %% Import Data
     # ala ./scripts/cc2018_dataset_parser.py
     # window_iterator = PCapWindowItr(
@@ -163,8 +173,10 @@ if __name__ == "__main__":
     # window_skip=args.window_skip,  # Seconds
     # window_length=args.window_skip,
     # )
-    scale_iterations = np.logspace(-1, 4, 10, dtype=float)
+
+    scale_iterations = np.logspace(-6, 1, 3, dtype=float)
     logger.info(f"Using iterations f{scale_iterations}")
+    logger.info(f"Model will be shown the following features {args.features}")
 
     ##############################
     # Load Pre-Trained Model
@@ -178,7 +190,8 @@ if __name__ == "__main__":
     logger.info(f"Working with file {args.csv_path}")
     dynamic_sampler = DynamicWindowSampler(args.csv_path)
     environment = Environment(dynamic_sampler, 1)
-    training_loop(environment, 12)
+    agent = RLAgent()
+    training_loop(environment, 12, agent)
 
     exit()
 
