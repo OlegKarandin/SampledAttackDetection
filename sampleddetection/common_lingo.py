@@ -28,14 +28,14 @@ class Attack(Enum):
     GENERAL = auto()
 
 
-# Create a Dictionary to string label
+# Create a Dictionary to labels `./data/label_data.json`
 ATTACK_TO_STRING: Dict[Enum, str] = {
     Attack.BENIGN: "Benign",
     Attack.SLOWLORIS: "DoS_Slowloris",
+    Attack.HULK: "DoS_Hulk",
+    Attack.SLOWHTTPTEST: "DoS_Slowhttptest",
+    Attack.GOLDENEYE: "DoS_GoldenEye",
     # TODO: (SUPER) : Fill the later with universal labels
-    Attack.SLOWHTTPTEST: "SLOWHTTPTEST",
-    Attack.HULK: "HULK",
-    Attack.GOLDENEYE: "GOLDENEYE",
     Attack.HEARTBLEED: "HEARTBLEED",
     Attack.WEB_BRUTEFORCE: "WEB_BRUTEFORCE",
     Attack.XSS: "XSS",

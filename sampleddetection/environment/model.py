@@ -27,7 +27,7 @@ class Environment:
     # Hyperparameters
     # CHECK: That we hav good ranges
     WINDOW_SKIP_RANGE = [1e-7, 1e2]
-    WINDOW_LENGTH_RANGE = [1e-5, 1e2]
+    WINDOW_LENGTH_RANGE = [1e-6, 1e2]
     AMOUNT_OF_SAMPLES_PER_ACTION = 1  # Where action means selection of frequency/window
     PREVIOUS_AMNT_SAMPLES = 12
     FLOW_MEMORY = 12  # Per-flow packet budget
