@@ -35,8 +35,8 @@ ATTACK_TO_STRING: Dict[Enum, str] = {
     Attack.HULK: "DoS_Hulk",
     Attack.SLOWHTTPTEST: "DoS_Slowhttptest",
     Attack.GOLDENEYE: "DoS_GoldenEye",
+    Attack.HEARTBLEED: "HeartBleed",
     # TODO: (SUPER) : Fill the later with universal labels
-    Attack.HEARTBLEED: "HEARTBLEED",
     Attack.WEB_BRUTEFORCE: "WEB_BRUTEFORCE",
     Attack.XSS: "XSS",
     Attack.SQL_INJECTION: "SQL_INJECTION",

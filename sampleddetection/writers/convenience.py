@@ -56,6 +56,7 @@ def save_flows_to_csv(
     path: str,
     desired_features: List[str],
     samples_per_class: Dict[Attack, int],
+    multiclass: bool,
     overwrite: bool = False,
 ):
     # Write the same exact function as above but now using flows
@@ -77,7 +78,11 @@ def save_flows_to_csv(
         flow_data = flow.get_data()
         flow_def, count = flow_key
         ordered_vals = [flow_data[f] for f in desired_features]
-        flow_enum = Attack.GENERAL if flow.label != Attack.BENIGN else Attack.BENIGN
+        if multiclass:
+            flow_enum = flow.label
+        else:
+            flow_enum = Attack.GENERAL if flow.label != Attack.BENIGN else Attack.BENIGN
+
         class_count[flow_enum] += 1
 
         if class_count[flow_enum] < samples_per_class[flow_enum]:
