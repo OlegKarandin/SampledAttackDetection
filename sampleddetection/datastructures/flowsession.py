@@ -8,7 +8,7 @@ from typing import Dict, Tuple, Union
 from scapy.packet import Packet
 from scapy.sessions import DefaultSession
 
-from sampleddetection.common_lingo import ATTACK_TO_STRING, Attack
+from sampleddetection.common_lingo import ATTACK_TO_STRING, Attack, TimeWindow
 from sampleddetection.datastructures.packet_like import PacketLike
 from sampleddetection.utils import setup_logger, unusable
 
@@ -33,6 +33,8 @@ class SampledFlowSession:
         # TODO: Ensure these things are being passed
         self.sampwindow_length = kwargs["sampwindow_length"]
         self.samp_curinitpos = kwargs["sample_initpos"]
+
+        self.time_window = TimeWindow(-1, -1)
 
     @unusable(
         reason="I dont see the need for exporting packetList", date="Mar 18, 2024"
@@ -107,6 +109,11 @@ class SampledFlowSession:
                     self.flows[(packet_flow_key, count)] = flow
                     break
 
+        # Update time_window
+        self.time_window.start = min(self.time_window.start, packet.time)
+        self.time_window.end = max(self.time_window.end, packet.time)
+
+        # Finally add_packet
         flow.add_packet(packet, direction)
 
         return True

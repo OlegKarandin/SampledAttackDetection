@@ -5,7 +5,7 @@ from math import ceil
 from pathlib import Path
 from random import shuffle
 from time import time
-from typing import Tuple, Union
+from typing import List, Tuple, Union
 
 import numpy as np
 from tqdm import tqdm
@@ -14,7 +14,7 @@ from sampleddetection.datastructures.context.packet_flow_key import get_packet_f
 from sampleddetection.datastructures.flowsession import SampledFlowSession
 from sampleddetection.readers.readers import AbstractReader, CaptureReader, CSVReader
 
-from ..common_lingo import ATTACK_TO_STRING
+from ..common_lingo import ATTACK_TO_STRING, TimeWindow
 from ..utils import deprecated, epoch_to_clean, setup_logger
 
 
@@ -26,9 +26,14 @@ class DynamicWindowSampler:
     NUM_WINDOWS_PER_SAMPLE = 1
 
     def __init__(
-        self, path: Union[Path, None] = None, csvrdr: Union[CSVReader, None] = None
+        self,
+        path: Union[Path, None] = None,
+        csvrdr: Union[CSVReader, None] = None,
+        with_replacement: bool = False,
+        lowest_resolution: float = 1e-6,
     ):
         path_str = path.__str__()
+        self.lowest_resolution = lowest_resolution
         self.logger = setup_logger(__class__.__name__, logging.DEBUG)
         if csvrdr == None:
             if path != None:
@@ -67,7 +72,6 @@ class DynamicWindowSampler:
         ~~~~~~~~~~
             - initial_precise: Whether we shoudl start precisely at the provided time or at the closest packet to it
         """
-        # packet_list = []
 
         idx_firstpack = binary_search(self.csvrdr, initial_time)
         if initial_precise:
@@ -103,6 +107,8 @@ class DynamicWindowSampler:
                 # )
                 flow_session.on_packet_received(curpack)
                 idx_curpack += 1
+                # We add the winodws of time we sampled to avoid sampling them later
+                self.sampled_time_windows.append(flow_session.time_window)
 
             # TODO: Create a check to ensure we are not going over the margin here
             cur_time = next_stop + window_skip

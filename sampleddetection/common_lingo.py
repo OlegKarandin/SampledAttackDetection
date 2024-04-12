@@ -1,11 +1,18 @@
 # Import Enum and Make an Enum out of all possible attacks from the CIC IDC 2017 dataset
 # This will be used to determine the possible actions for the RL agent.
+from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Dict, List, NamedTuple
 
 from scapy.plist import PacketList
 
 from sampleddetection.utils import unusable
+
+
+@dataclass
+class TimeWindow:
+    start: float
+    end: float
 
 
 class Attack(Enum):
