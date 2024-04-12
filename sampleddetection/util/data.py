@@ -70,22 +70,7 @@ def clean_dataset(
     # Relabel the dataset
     relabelled_df, labels = relabel_df(df, group_attacks, attacks_to_detect)
 
-    # Balance the dataset
-    balanced_df = pd.DataFrame()
-    samples_per_class = 1200
-
-    for label in labels:
-        class_df = relabelled_df[relabelled_df["label"] == label]
-        random_indices = np.random.choice(
-            class_df.index, samples_per_class, replace=False
-        )
-        balanced_df = pd.concat([balanced_df, class_df.loc[random_indices]], axis=0)
-
-    balanced_df = balanced_df.sample(frac=1).reset_index(drop=True)
-
-    print(balanced_df["label"].value_counts())
-
-    return balanced_df
+    return relabelled_df
 
 
 def train_classifier_XGBoost(X_train, y_train, X_val, y_val):
