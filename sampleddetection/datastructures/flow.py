@@ -5,7 +5,7 @@ from scapy.all import Packet
 
 from sampleddetection.datastructures.packet_like import PacketLike
 
-from ..common_lingo import ATTACK_TO_STRING, STRING_TO_ATTACKS, Attack
+from ..common_lingo import ATTACK_TO_STRING, STRING_TO_ATTACKS, Attack, TimeWindow
 from ..utils import get_statistics
 from . import constants
 from .context import packet_flow_key
@@ -42,6 +42,8 @@ class Flow:
             PacketDirection.FORWARD: 0,
             PacketDirection.REVERSE: 0,
         }
+
+        self.time_window = TimeWindow(-1, -1)
 
         self.start_active = 0
         self.last_active = 0
@@ -240,6 +242,9 @@ class Flow:
                 )
 
         # Normal Operations
+        self.time_window.start = min(self.time_window.start, packet.time)
+        self.time_window.end = max(self.time_window.end, packet.time)
+
         self.packets.append((packet, direction))
 
         self.update_flow_bulk(packet, direction)

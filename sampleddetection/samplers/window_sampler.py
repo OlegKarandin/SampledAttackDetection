@@ -29,7 +29,6 @@ class DynamicWindowSampler:
         self,
         path: Union[Path, None] = None,
         csvrdr: Union[CSVReader, None] = None,
-        with_replacement: bool = False,
         lowest_resolution: float = 1e-6,
     ):
         path_str = path.__str__()
@@ -58,7 +57,7 @@ class DynamicWindowSampler:
 
     def sample(
         self,
-        initial_time: float,
+        starting_time: float,
         window_skip: float,
         window_length: float,
         initial_precise: bool = False,
@@ -73,10 +72,10 @@ class DynamicWindowSampler:
             - initial_precise: Whether we shoudl start precisely at the provided time or at the closest packet to it
         """
 
-        idx_firstpack = binary_search(self.csvrdr, initial_time)
+        idx_firstpack = binary_search(self.csvrdr, starting_time)
         if initial_precise:
             cur_time = (
-                initial_time + window_skip
+                starting_time + window_skip
             )  # Assumes that we will start `window_skip` after inference
         else:
             cur_time = (
@@ -86,7 +85,7 @@ class DynamicWindowSampler:
         next_stop = cur_time + window_length
 
         flow_session = SampledFlowSession(
-            sampwindow_length=window_length, sample_initpos=initial_time
+            sampwindow_length=window_length, sample_initpos=starting_time
         )
 
         curpack = self.csvrdr[idx_firstpack]
@@ -101,22 +100,13 @@ class DynamicWindowSampler:
                 self.logger.debug(
                     f"at idx {idx_curpack} we see a timestamp of {curpack.time}({epoch_to_clean(curpack.time)})"
                 )
-                # self.logger.debug(f"cur_time {cur_time} stopping at {next_stop}")
-                # self.logger.debug(
-                #     f"Packet at time {cur_time} has label {ATTACK_TO_STRING[curpack.label]}"
-                # )
                 flow_session.on_packet_received(curpack)
                 idx_curpack += 1
-                # We add the winodws of time we sampled to avoid sampling them later
-                self.sampled_time_windows.append(flow_session.time_window)
 
             # TODO: Create a check to ensure we are not going over the margin here
             cur_time = next_stop + window_skip
             next_stop = cur_time + window_length
 
-        # self.logger.debug(
-        #     f"Size of these flows is {str([len(f) for f in flow_session.flows.values()])}. "
-        # )
         return flow_session
 
     @deprecated(
@@ -157,6 +147,56 @@ class DynamicWindowSampler:
                 cur_right_limit = cur_left_limit + self.window_length
 
         return flow_session
+
+
+class NoReplacementSampler(DynamicWindowSampler):
+    def __init__(
+        self,
+        path: Union[Path, None] = None,
+        csvrdr: Union[CSVReader, None] = None,
+        lowest_resolution: float = 1e-6,
+    ):
+        super().__init__(path, csvrdr, lowest_resolution)
+        self.sampled_windows: List[TimeWindow] = []
+
+    def sample(
+        self, window_skip: float, window_length: float, initial_precise: bool = False
+    ) -> SampledFlowSession:
+        foundSampled = True
+        starting_time = -1
+        while foundSampled:
+            starting_time = np.random.uniform(
+                low=self.first_sniff_time, high=self.last_sniff_time
+            )
+            end_time = starting_time + window_length
+
+            foundSampled = False  # Start with hope
+            for window in self.sampled_windows:
+                if (window.start <= starting_time and starting_time <= window.end) or (
+                    window.start <= end_time and end_time <= window.end
+                ):
+                    foundSampled = True
+                    self.logger.debug(
+                        "Found a clash!"
+                        f"Trying window start {starting_time} with end_time {end_time}"
+                        f"Clashed with alredy sampled {window.start}-{window.end}"
+                    )
+                    break
+
+        # This should NOT be triggered
+        assert not foundSampled, "Couldnt find a non sampled window"
+
+        self.sampled_windows.append(
+            TimeWindow(start=starting_time, end=starting_time + window_length)
+        )
+
+        # Sample as we normally would
+        return super().sample(
+            starting_time, window_skip, window_length, initial_precise
+        )
+
+    def clear_memory(self):
+        self.sampled_windows = []
 
 
 class UniformWindowSampler:
