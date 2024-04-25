@@ -82,8 +82,8 @@ class Environment:
 
         return_state = State(
             time_point=start_time,
-            window_skip=winskip,
-            window_length=winlen,
+            cur_window_skip=winskip,
+            cur_window_length=winlen,
             flow_sesh=flow_sesh,
         )
 
@@ -112,8 +112,8 @@ class Environment:
 
         return State(
             time_point=self.starting_time,
-            window_skip=self.cur_winskip,
-            window_length=self.cur_winlen,
+            cur_window_skip=self.cur_winskip,
+            cur_window_length=self.cur_winlen,
             flow_sesh=flow_sesh,
         )
 
@@ -163,3 +163,34 @@ class Environment:
                 winlen, self.WINDOW_LENGTH_RANGE[0], self.WINDOW_LENGTH_RANGE[1]
             ), f"Winlen {winlen} out of range"
             self.cur_winlen = winlen
+
+
+class Agent:
+    def __init__(
+        self,
+        input_dim: int,
+        hidden_dim: int,
+        output_dim: int,
+        observable_datapoints: List[str],
+    ):
+        # self.rnn = nn.GRU(input_dim, hidden_dim, num_layers=1)
+        self.onbservable_datapoints = observable_datapoints
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        self.output_dim = output_dim
+
+        self.nn = nn.Sequential(
+            nn.Linear(self.input_dim, self.hidden_dim),
+            nn.ReLU(),
+            nn.Linear(self.hidden_dim, self.output_dim),
+        )
+
+    def query(self, state: State) -> Action:
+        # TODO: Try a summarry og history of states if we find it necessary
+        # Lets disect the state
+        state_tensor = state.as_tensor(self.onbservable_datapoints)
+
+        nn_result = self.nn(state_tensor)
+        action = Action(nn_result)
+
+        return action
