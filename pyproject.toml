@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "sampleddetection"
+version = "0.1.0"
+description = ""
+authors = ["Luis Garcia <luisgarcia26284@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+pandas = "^2.2.2"
+matplotlib = "^3.8.4"
+numpy = "^1.26.4"
+jupyter = "^1.0.0"
+tqdm = "^4.66.2"
+scapy = "^2.5.0"
+ipywidgets = "^8.1.2"
+hyperopt = "^0.2.7"
+joblib = "^1.4.0"
+scikit-learn = "^1.4.2"
+xgboost = "^2.0.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
