@@ -126,7 +126,7 @@ def train_classifier_XGBoost(X_train, y_train):
 
 def read_DDOS_dataset(selected_features):
     df = pd.read_csv(
-        "./bigdata/MachineLearningCVE/Wednesday-workingHours.pcap_ISCX.csv",
+        "../data/MachineLearningCVE/Wednesday-workingHours.pcap_ISCX.csv",
         delimiter=",",
     )
     new_cols = {col: col.strip() for col in df.columns}
