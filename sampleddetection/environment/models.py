@@ -194,3 +194,41 @@ class Agent:
         action = Action(nn_result)
 
         return action
+
+
+class ExperienceBuffer:
+    """
+    Meant to store all experiences we collect with on-policy approach
+    For now it will store a fixed amount of experiences
+    Will use the Generalized Advantage Estimator (GAE) for estimation of advantage function 
+    """
+    def __init__(self, obs_dim: int, act_dim: int, path_start_idx: int, buffer_size: int, lam: float):
+        assert (0 < lam) and (lam < 1), "Lambda must be in (0,1)"
+        self.obs_dim     = obs_dim
+        self.act_dim     = act_dim
+        self.buffer_size = buffer_size
+        self.path_start_idx = path_start_idx
+
+        # Create the buffers
+        self.obs_buff = torch.zeros((buffer_size, obs_dim))
+        self.act_buff = torch.zeros(buffer_size, act_dim)
+
+        self.idx = 0
+
+    def store(self, new_obs: torch.Tensor, new_acts: torch.Tensor):
+
+        self.obs_buff[self.idx] = new_obs
+        self.act_buff[self.idx] = new_acts
+
+        self.idx += 1
+
+
+    def compute_advantage_estimate(self):
+        assert self.idx == self.buffer_size, "Buffer not full."
+        # Compute Rewards to Go
+        path_slice = slice(self.path_start_idx, self.idx) 
+
+        # Compute Advantage Estimates
+        
+
+
