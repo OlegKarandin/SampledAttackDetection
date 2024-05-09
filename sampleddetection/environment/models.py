@@ -3,15 +3,16 @@ import random
 from logging import DEBUG
 from typing import List, Tuple, Union
 
+import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
+from torch.distributions.categorical import Categorical
+from torch.distributions.normal import Normal
 
 # from .agents import AgentLike, BaselineAgent, RLAgent
-from sampleddetection.samplers.window_sampler import (
-    DynamicWindowSampler,
-    UniformWindowSampler,
-)
+from sampleddetection.samplers.window_sampler import (DynamicWindowSampler,
+                                                      UniformWindowSampler)
 
 from ..datastructures.flowsession import SampledFlowSession
 from ..utils import clamp, setup_logger, within
@@ -36,9 +37,9 @@ class Environment:
 
     def __init__(
         self,
-        sampler: DynamicWindowSampler,
+        sampler: Union[DynamicWindowSampler, None],
     ):
-        self.sampler = sampler
+        self.sampler = sampler if sampler != None else: 
         self.logger = setup_logger(self.__class__.__name__, DEBUG)
 
         # Internal representation of State. Will be returned to viewer as in `class State` language
@@ -46,7 +47,7 @@ class Environment:
         self.cur_winlen = float("-inf")
         self.cur_winskip = float("-inf")
 
-    def step(self, cur_state: State, action: Action) -> Tuple[State, float]:
+    def step(self, action: Action) -> Tuple[State, float]:
         """
         returns
         ~~~~~~~
@@ -200,12 +201,20 @@ class ExperienceBuffer:
     """
     Meant to store all experiences we collect with on-policy approach
     For now it will store a fixed amount of experiences
-    Will use the Generalized Advantage Estimator (GAE) for estimation of advantage function 
+    Will use the Generalized Advantage Estimator (GAE) for estimation of advantage function
     """
-    def __init__(self, obs_dim: int, act_dim: int, path_start_idx: int, buffer_size: int, lam: float):
+
+    def __init__(
+        self,
+        obs_dim: int,
+        act_dim: int,
+        path_start_idx: int,
+        buffer_size: int,
+        lam: float,
+    ):
         assert (0 < lam) and (lam < 1), "Lambda must be in (0,1)"
-        self.obs_dim     = obs_dim
-        self.act_dim     = act_dim
+        self.obs_dim = obs_dim
+        self.act_dim = act_dim
         self.buffer_size = buffer_size
         self.path_start_idx = path_start_idx
 
@@ -216,19 +225,110 @@ class ExperienceBuffer:
         self.idx = 0
 
     def store(self, new_obs: torch.Tensor, new_acts: torch.Tensor):
-
         self.obs_buff[self.idx] = new_obs
         self.act_buff[self.idx] = new_acts
 
         self.idx += 1
 
-
     def compute_advantage_estimate(self):
         assert self.idx == self.buffer_size, "Buffer not full."
         # Compute Rewards to Go
-        path_slice = slice(self.path_start_idx, self.idx) 
+        path_slice = slice(self.path_start_idx, self.idx)
 
         # Compute Advantage Estimates
-        
 
 
+class Critic(nn.Module):
+    def __init__(self, sizes: Tuple[int, ...]):
+        super().__init__()
+        num_layers = len(sizes) - 1
+        self.net_list: List[nn.Module] = []
+        for i in range(num_layers):
+            self.net_list.append(nn.Linear(sizes[i], sizes[i + 1]))
+            if i < (num_layers):
+                # Normal Relu Activation
+                self.net_list.append(nn.ReLU())
+
+        self.net = nn.Sequential(*self.net_list)
+
+    def forward(self, obs):
+        # CHECK: That we have the right shape
+        return self.net(obs)
+
+
+class GaussianActor(nn.Module):
+    def __init__(self, action_dim: int):
+        super().__init__()
+        log_std = -0.5 * torch.ones(action_dim, dtype=torch.float32)
+
+    def forward(self, obs: torch.Tensor):
+        pass  # TODO:
+
+
+class CategoricalActor(nn.Module):
+    # def __init__(self, obs_dim: int, action_dim: int):
+    def __init__(self, obs_dim: int, hidden_sizes: Tuple[int, ...], action_dim: int):
+        super().__init__()
+        # Will jus be a softmax that we get out of this.
+        # This will be passed to be sampled as catgeorical
+        assert len(hidden_sizes) >= 1, "Not enough hidden dimensions"
+        self.obs_dim = obs_dim
+
+        net_list = [nn.Linear(obs_dim, hidden_sizes[0]), nn.ReLU()]
+
+        meta_hidden_sizes = hidden_sizes + (action_dim,)
+
+        for h in range(len(meta_hidden_sizes) - 1):
+            net_list.append(nn.Linear(hidden_sizes[h], hidden_sizes[h + 1]))
+            if h != (len(meta_hidden_sizes) - 1):
+                net_list.append(nn.ReLU())
+
+        self.net = nn.Sequential(*net_list)
+
+    def get_dist(self, x: torch.Tensor) -> Categorical:
+        # Assert dimensions of x
+        assert (
+            x.shape[1] == self.obs_dim
+        ), "Input shape not matching for CategoricalActor"
+
+        logits = self.net(x)
+        return Categorical(logits=logits)
+
+
+class ActorCritic(nn.Module):
+    def __init__(
+        self, obs_dim: int, action_dim: int, hidden_sizes: Tuple[int, ...] = (64, 64)
+    ):
+        super().__init__()
+        self.action_dim = action_dim
+        self.obs_dim = obs_dim
+
+        self.critic = Critic((obs_dim,) + hidden_sizes)
+        self.actor = CategoricalActor(obs_dim, hidden_sizes, action_dim)
+
+    def step(
+        self, obs: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Will return action, observastion value, and actions logprob
+
+        Arguments
+        ---------
+
+        obs: torch.Tensor -> Obervartions
+
+        Return
+        ------
+        Action, Value, LogProbs
+        """
+        # Optimization comes later
+        with torch.no_grad():
+            # Get the action
+            action_dist = self.actor.get_dist(obs)
+            action_sample = action_dist.sample()
+            action_logprobs = action_dist.log_prob(action_sample)
+
+            # Get the value of state
+            obs_value = self.critic(obs)
+
+        return action_sample, obs_value, action_logprobs
