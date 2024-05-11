@@ -1,0 +1,25 @@
+{
+  "desired_features": [
+    "label",
+    "fwd_pkt_len_max",
+    "fwd_pkt_len_min",
+    "fwd_pkt_len_mean",
+    "bwd_pkt_len_max",
+    "bwd_pkt_len_min",
+    "bwd_pkt_len_mean",
+    "flow_byts_s",
+    "flow_pkts_s",
+    "flow_iat_mean",
+    "flow_iat_max",
+    "flow_iat_min",
+    "fwd_iat_mean",
+    "fwd_iat_max",
+    "fwd_iat_min",
+    "bwd_iat_max",
+    "bwd_iat_min",
+    "bwd_iat_mean",
+    "pkt_len_min",
+    "pkt_len_max",
+    "pkt_len_mean"
+  ]
+}

@@ -16,6 +16,7 @@ from sampleddetection.datastructures.flowsession import SampledFlowSession
 # %%
 from sampleddetection.environment.datastructures import Action, State
 from sampleddetection.environment.model import Environment
+import json
 
 # Make sure these are reloaded when cells are rerun
 # %load_ext autoreload
@@ -37,36 +38,11 @@ multiclass_classifcation = True # If false, we label all attacks as 1
 csv_path = './data/Wednesday.csv'
 dataset_dir    = './data/precalc_windows/'
 dataset_filename = 'ws_{}_wl_{}.csv'
-desired_features = [
-            # Debugging info
-            #"start_ts",
-            #"start_timestamp",
-            #"end_timestamp",
-            #"tot_fwd_pkts",
-            #"tot_bwd_pkts",
-            # Non debugging
-            "label",
-            "fwd_pkt_len_max",
-            "fwd_pkt_len_min",
-            "fwd_pkt_len_mean",
-            "bwd_pkt_len_max",
-            "bwd_pkt_len_min",
-            "bwd_pkt_len_mean",
-            "flow_byts_s",
-            "flow_pkts_s",
-            "flow_iat_mean",
-            "flow_iat_max",
-            "flow_iat_min",
-            "fwd_iat_mean",
-            "fwd_iat_max",
-            "fwd_iat_min",
-            "bwd_iat_max",
-            "bwd_iat_min",
-            "bwd_iat_mean",
-            "pkt_len_min",
-            "pkt_len_max",
-            "pkt_len_mean",
-]
+paradigm_constants_path = "./paradigm_constant.json"
+
+with open(paradigm_constants_path) as f:
+    desired_features = json.load(f)["desired_features"]
+
 attacks_to_detect = [
     Attack.SLOWLORIS,
     Attack.SLOWHTTPTEST,
