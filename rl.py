@@ -1,7 +1,12 @@
+# $%% [markdown]
+# 
+# This is the the potential none-raylib approach
+
 # %% [markdown]
 # # Introduction
 # Point of this notebook is simply to observe (withotu any decision making) the performance across a matrix of window skips and window lengths
 
+import json
 import os
 import random
 from itertools import product
@@ -16,7 +21,6 @@ from sampleddetection.datastructures.flowsession import SampledFlowSession
 # %%
 from sampleddetection.environment.datastructures import Action, State
 from sampleddetection.environment.model import Environment
-import json
 
 # Make sure these are reloaded when cells are rerun
 # %load_ext autoreload
