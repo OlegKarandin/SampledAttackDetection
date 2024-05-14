@@ -2,11 +2,14 @@
 # This will be used to determine the possible actions for the RL agent.
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Dict, List, NamedTuple
+from typing import Any, Dict, List, NamedTuple, Sequence, Union
 
+import numpy as np
 from scapy.plist import PacketList
 
 from sampleddetection.utils import unusable
+
+ArrayLike = Union[np.ndarray, Sequence[Union[int, float, Sequence[Any]]]]
 
 
 @dataclass

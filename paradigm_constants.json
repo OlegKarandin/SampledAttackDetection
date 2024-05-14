@@ -21,5 +21,6 @@
     "pkt_len_min",
     "pkt_len_max",
     "pkt_len_mean"
-  ]
+  ],
+  "actions": [-1, 1]
 }

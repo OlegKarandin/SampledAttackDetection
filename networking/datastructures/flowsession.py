@@ -8,8 +8,8 @@ from typing import Dict, Tuple, Union
 from scapy.packet import Packet
 from scapy.sessions import DefaultSession
 
+from networking.datastructures.packet_like import PacketLike
 from sampleddetection.common_lingo import ATTACK_TO_STRING, Attack, TimeWindow
-from sampleddetection.datastructures.packet_like import PacketLike
 from sampleddetection.utils import setup_logger, unusable
 
 from .constants import EXPIRED_UPDATE, GARBAGE_COLLECT_PACKETS
