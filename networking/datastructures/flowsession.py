@@ -3,7 +3,7 @@
 """
 
 from enum import Enum
-from typing import Dict, Tuple, Union
+from typing import Dict, Sequence, Tuple, Union
 
 from scapy.packet import Packet
 from scapy.sessions import DefaultSession
@@ -139,6 +139,12 @@ class SampledFlowSession:
             for k, v in self.flows.items():
                 info[k] = v.get_data()
         return info
+
+    def get_packets(self) -> Sequence[PacketLike]:
+        packets = []
+        for _, flow in self.flows.items():
+            packets.extend(flow.packets)
+        return packets
 
 
 @unusable(reason="No longer using scapy sniffers", date="< Mar 29, 2024")

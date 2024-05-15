@@ -23,11 +23,13 @@ class NetState(State):
         flow_sesh: SampledFlowSession,
         observable_features: List[str],
     ):
-        self.time_point = time_point
-        self.cur_window_skip = window_skip
-        self.cur_window_length = cur_window_length
+        super().__init__(
+            time_point=time_point,
+            window_skip=window_skip,
+            cur_window_length=cur_window_length,
+            observations=flow_sesh.get_data(),
+        )
         self.flow_sesh = flow_sesh
-        # Not all features in flow_sesh are to be observed
         self.observable_features = observable_features
 
     def as_tensor(self, relevant_datapoints: List[str]) -> Tensor:

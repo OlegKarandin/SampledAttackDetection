@@ -1,15 +1,36 @@
 from abc import ABC, abstractmethod
-from typing import Dict
+from typing import Dict, List, Sequence
 
 import numpy as np
 from torch import Tensor
 
 
 # Just define by properties one expects it to have
-class State(ABC):
+class StateLike(ABC):
     @abstractmethod
     def as_tensor(self, extra_data: Dict) -> Tensor:
         pass
+
+
+class State(StateLike):
+    def __init__(
+        self,
+        time_point: float,
+        window_skip: float,
+        window_length: float,
+        observations: Sequence,
+        observable_features: List[str],
+    ):
+        self.time_point = time_point
+        self.cur_window_skip = window_skip
+        self.cur_window_length = window_length
+        self.observations = observations
+        # Not all features in flow_sesh are to be observed
+        self.observable_features = observable_features
+
+    # TODO: implement as we find it necessary
+    def as_tensor(self, extra_data: Dict) -> Tensor:
+        raise NotImplementedError
 
 
 class Action(np.ndarray):

@@ -27,10 +27,12 @@ class SamplingEnvironment:
     def __init__(
         self,
         sampler: TSSampler,
+        observable_features: List,
     ):
 
         self.sampler = sampler
         self.logger = setup_logger(self.__class__.__name__, DEBUG)
+        self.observable_features = observable_features
 
         # Internal representation of State. Will be returned to viewer as in `class State` language
         self.starting_time = float("-inf")
@@ -60,7 +62,7 @@ class SamplingEnvironment:
         )
         return self._step(self.starting_time, self.cur_winskip, self.cur_winlen)
 
-    def _step(self, start_time, winskip, winlen) -> Tuple[State, float]:
+    def _step(self, starting_time, winskip, winlen) -> Tuple[State, float]:
         """
         returns
         ~~~~~~~
@@ -68,13 +70,14 @@ class SamplingEnvironment:
             Reward: float
         """
         # Do Sampling
-        flow_sesh = self.sampler.sample(start_time, winskip, winlen)
+        samples = self.sampler.sample(starting_time, winskip, winlen)
 
         return_state = State(
-            time_point=start_time,
-            cur_window_skip=winskip,
-            cur_window_length=winlen,
-            flow_sesh=flow_sesh,
+            time_point=starting_time,
+            window_skip=winskip,
+            window_length=winlen,
+            observations=samples,
+            observable_features=self.observable_features,
         )
 
         # TODO: calculatae the reward
@@ -84,9 +87,9 @@ class SamplingEnvironment:
 
     def reset(
         self,
-        starting_time: Union[None, float] = None,
-        winskip: Union[None, float] = None,
-        winlen: Union[None, float] = None,
+        starting_time: float,
+        winskip: float,
+        winlen: float,
     ) -> State:
         # Find different simulatenous positions to draw from
         # Staring Frequencies
@@ -94,18 +97,20 @@ class SamplingEnvironment:
 
         self._initialize_triad(starting_time, winskip, winlen)
 
-        flow_sesh = self.sampler.sample(
+        samples = self.sampler.sample(
             self.starting_time,
             self.cur_winskip,
             self.cur_winlen,
         )
 
-        return State(
-            time_point=self.starting_time,
-            cur_window_skip=self.cur_winskip,
-            cur_window_length=self.cur_winlen,
-            flow_sesh=flow_sesh,
+        return_state = State(
+            time_point=starting_time,
+            window_skip=winskip,
+            window_length=winlen,
+            observations=samples,
+            observable_features=self.observable_features,
         )
+        return return_state
 
     def _initialize_triad(
         self,
