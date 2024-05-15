@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Sequence
 
 import gymnasium as gym
 import numpy as np
@@ -25,6 +25,7 @@ class GymSamplingEnv(gym.Env):
         num_obs_elements: int,
         num_possible_actions: int,
         action_idx_to_direction: Dict[int, int],  # TODO: maybe change to simply scaling
+        observable_features: Sequence,
     ):
 
         # Get Sampler
@@ -34,7 +35,7 @@ class GymSamplingEnv(gym.Env):
         csv_reader = CSVReader(csv_path)
         meta_sampler = NoReplacementSampler(csv_reader)
 
-        self.env = SamplingEnvironment(sampler=meta_sampler)
+        self.env = SamplingEnvironment(meta_sampler, observable_features)
 
         self.action_idx_to_direction = action_idx_to_direction
 

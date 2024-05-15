@@ -1,7 +1,6 @@
-import math
 import random
 from logging import DEBUG
-from typing import List, Tuple, Union
+from typing import Sequence, Tuple, Union
 
 from sampleddetection.datastructures import Action, State
 from sampleddetection.samplers import TSSampler
@@ -27,7 +26,7 @@ class SamplingEnvironment:
     def __init__(
         self,
         sampler: TSSampler,
-        observable_features: List,
+        observable_features: Sequence,
     ):
 
         self.sampler = sampler
@@ -87,9 +86,9 @@ class SamplingEnvironment:
 
     def reset(
         self,
-        starting_time: float,
-        winskip: float,
-        winlen: float,
+        starting_time: Union[float, None] = None,
+        winskip: Union[float, None] = None,
+        winlen: Union[float, None] = None,
     ) -> State:
         # Find different simulatenous positions to draw from
         # Staring Frequencies
@@ -104,9 +103,9 @@ class SamplingEnvironment:
         )
 
         return_state = State(
-            time_point=starting_time,
-            window_skip=winskip,
-            window_length=winlen,
+            time_point=self.starting_time,
+            window_skip=self.cur_winskip,
+            window_length=self.cur_winlen,
             observations=samples,
             observable_features=self.observable_features,
         )

@@ -19,7 +19,7 @@ class State(StateLike):
         window_skip: float,
         window_length: float,
         observations: Sequence,
-        observable_features: List[str],
+        observable_features: Sequence,
     ):
         self.time_point = time_point
         self.cur_window_skip = window_skip
