@@ -8,6 +8,38 @@ import pandas as pd
 from ..utils import setup_logger
 
 
+class SampleLike(ABC):
+    """
+    Define a few attributes that samples must have
+    """
+
+    @property
+    @abstractmethod
+    def time(self) -> float:
+        pass
+
+
+# TODO: A bit loose for my liking
+class Sample(SampleLike):
+    def __init__(self, item):
+        self.item = item
+
+    @property
+    def time(self) -> float:
+        """The time property."""
+        return self.item.time
+
+
+class CSVSample(SampleLike):
+    def __init__(self, row: pd.Series):
+        self.item = row
+
+    @property
+    def time(self) -> float:
+        """The time property."""
+        return self.item["timestamp"]
+
+
 class AbstractTimeSeriesReader(ABC):
     """
     Abstract class for readers
@@ -15,7 +47,7 @@ class AbstractTimeSeriesReader(ABC):
     """
 
     @abstractmethod
-    def __getitem__(self, index) -> Any:
+    def __getitem__(self, index) -> SampleLike:
         pass
 
     @abstractmethod
@@ -78,8 +110,8 @@ class CSVReader(AbstractTimeSeriesReader):
     def __len__(self):
         return len(self.csv_df)
 
-    def __getitem__(self, idx) -> Any:
-        return self.csv_df.iloc[idx]
+    def __getitem__(self, idx) -> CSVSample:
+        return CSVSample(self.csv_df.iloc[idx])
 
     def getTimestamp(self, idx):
         return self.csv_df.iloc[idx]["timestamp"]

@@ -5,7 +5,7 @@ from typing import Any, List, Sequence, Tuple
 
 import numpy as np
 
-from sampleddetection.readers.readers import AbstractTimeSeriesReader
+from sampleddetection.readers.readers import AbstractTimeSeriesReader, Sample
 
 from .common_lingo import TimeWindow
 from .utils import epoch_to_clean, setup_logger
@@ -104,7 +104,7 @@ class DynamicWindowSampler(TSSampler):
                 f"at idx {idx_cursample} we see a timestamp of {cursample.time}({epoch_to_clean(cursample.time)})"
             )
             # flow_session.on_packet_received(curpack)
-            samples.append(cursample)
+            samples.append(Sample(cursample))
             idx_cursample += 1
 
         # TODO: Create a check to ensure we are not going over the margin here
