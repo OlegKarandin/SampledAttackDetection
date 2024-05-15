@@ -22,8 +22,18 @@ class TSSampler(ABC):
     ) -> Sequence[Any]:
         pass
 
+    @property
+    @abstractmethod
+    def init_time(self) -> float:
+        pass
 
-class DynamicWindowSampler:
+    @property
+    @abstractmethod
+    def fin_time(self) -> float:
+        pass
+
+
+class DynamicWindowSampler(TSSampler):
     """
     Sampler Agnostic to Type of data being dealt with.
     """
@@ -37,10 +47,15 @@ class DynamicWindowSampler:
         self.logger = setup_logger(__class__.__name__, logging.DEBUG)
         self.timeseries_rdr = timeseries_rdr
 
-        self.init_time = self.timeseries_rdr.init_time
-        self.fin_time = self.timeseries_rdr.fin_time
-
         self.max_idx = len(self.timeseries_rdr) - 1
+
+    @property
+    def init_time(self):
+        return self.timeseries_rdr.init_time
+
+    @property
+    def fin_time(self):
+        return self.timeseries_rdr.fin_time
 
     def sample(
         self,

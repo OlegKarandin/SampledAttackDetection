@@ -114,8 +114,8 @@ class SamplingEnvironment:
         winlen: Union[None, float] = None,
     ):
         min_time, max_time = (
-            self.sampler.csvrdr.first_sniff_time,
-            self.sampler.csvrdr.last_sniff_time,
+            self.sampler.init_time,
+            self.sampler.fin_time,
         )
 
         self.logger.debug("Restarting the environment")
