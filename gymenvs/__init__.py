@@ -14,8 +14,9 @@ with open("./meepo.txt", "a+") as f:
     f.write(str(new_line_value))
     f.truncate()
 
+
 register(
     id="NetEnv-v0",
-    entry_point="sampleddetection.environment.gymenvs.GymNetworkEnv:GymNetworkEnv",
+    entry_point="gymenvs.GymSamplingEnv:GymSamplingEnv",
     max_episode_steps=100,  # CHECK: This is right
 )

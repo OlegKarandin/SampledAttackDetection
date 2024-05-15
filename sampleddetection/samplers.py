@@ -1,4 +1,5 @@
 import logging
+from abc import ABC, abstractmethod
 from math import ceil
 from typing import Any, List, Sequence, Tuple
 
@@ -10,11 +11,22 @@ from .common_lingo import TimeWindow
 from .utils import epoch_to_clean, setup_logger
 
 
+class TSSampler(ABC):
+    @abstractmethod
+    def sample(
+        self,
+        starting_time: float,
+        window_skip: float,
+        window_length: float,
+        initial_precise: bool = False,
+    ) -> Sequence[Any]:
+        pass
+
+
 class DynamicWindowSampler:
     """
     Sampler Agnostic to Type of data being dealt with.
     """
-
 
     def __init__(
         self,
@@ -36,8 +48,8 @@ class DynamicWindowSampler:
         window_skip: float,
         window_length: float,
         initial_precise: bool = False,
-    ) -> Sequence[Any]: 
-    # ) -> SampledFlowSession:
+    ) -> Sequence[Any]:
+        # ) -> SampledFlowSession:
         # ) -> pd.DataFrame:
         """
         Will return a `SampledFlowSession` for a specific time window.
@@ -128,27 +140,27 @@ class DynamicWindowSampler:
     #     return flow_session
 
 
-
 class NoReplacementSampler(DynamicWindowSampler):
     def __init__(
         self,
         csvrdr: AbstractTimeSeriesReader,
-        lowest_resolution: float = 1e-,
+        lowest_resolution: float = 1e-6,
     ):
         super().__init__(csvrdr, lowest_resolution)
         self.sampled_windows: List[TimeWindow] = []
 
     def sample(
-        self, window_skip: float, window_length: float, initial_precise: bool = False
-    # ) -> SampledFlowSession:
+        self,
+        window_skip: float,
+        window_length: float,
+        initial_precise: bool = False,
+        # ) -> SampledFlowSession:
     ) -> Sequence[Any]:
 
         foundSampled = True
         starting_time = -1
         while foundSampled:
-            starting_time = np.random.uniform(
-                low=self.init_time, high=self.fin_time
-            )
+            starting_time = np.random.uniform(low=self.init_time, high=self.fin_time)
             end_time = starting_time + window_length
 
             foundSampled = False  # Start with hope

@@ -6,9 +6,8 @@ import torch.nn as nn
 from common_lingo import ArrayLike
 from torch import Tensor
 
+from networking.datastructures.flowsession import SampledFlowSession
 from sampleddetection.datastructures import Action, State
-
-from ..datastructures.flowsession import SampledFlowSession
 
 # Nothing much else to add
 NetAction = Action

@@ -2,6 +2,7 @@
 All the hardcoded statistics used in this script where 
 calculated by hand.
 """
+
 import ast
 import os
 
@@ -19,7 +20,9 @@ sys.path.append(parent_path)
 from logging import DEBUG as LVL_DEBUG
 from logging import INFO as LVL_INFO
 
-from sampleddetection.datastructures.flowsession import SampledFlowSession
+from network.datastructures.flowsession import SampledFlowSession
+
+from networking.datastructures.flow import SampledFlowSession
 from sampleddetection.utils import NpEncoder, setup_logger
 
 global logger
@@ -348,9 +351,9 @@ def test_idle_times(
 @pytest.fixture
 def flowsesh(request) -> SampledFlowSession:
     csvreader = CSVReader(Path(request.config.getoption("--csvfile")))
-    dws = DynamicWindowSampler(csvrdr=csvreader)
-    first_sniff = dws.csvrdr.first_sniff_time - 1
-    final_sniff = dws.csvrdr.last_sniff_time
+    dws = DynamicWindowSampler(timeseries_rdr=csvreader)
+    first_sniff = dws.timeseries_rdr.first_sniff_time - 1
+    final_sniff = dws.timeseries_rdr.last_sniff_time
     non_existant_window = 1e-16
     flowsesh = dws.sample(
         first_sniff,

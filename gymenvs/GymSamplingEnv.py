@@ -12,6 +12,10 @@ from sampleddetection.samplers import NoReplacementSampler
 
 
 class GymSamplingEnv(gym.Env):
+    """
+    Responibilities:
+        Wrap around non-gym environment
+    """
 
     metadata = {}
 

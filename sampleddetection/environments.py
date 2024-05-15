@@ -4,15 +4,16 @@ from logging import DEBUG
 from typing import List, Tuple, Union
 
 from sampleddetection.datastructures import Action, State
-from sampleddetection.datastructures.flowsession import SampledFlowSession
+from sampleddetection.samplers import TSSampler
 from sampleddetection.utils import clamp, setup_logger, within
 
 
 class SamplingEnvironment:
     """
+    Responsibilities:
+        Basic sampling of environments using window length and window frequency.
     State is defined as:
         A point in time together with current window size and current frequency
-    This environment is independent of any rl frameworks for simulation
     """
 
     # Hyperparameters
@@ -25,7 +26,7 @@ class SamplingEnvironment:
 
     def __init__(
         self,
-        sampler: DynamicWindowSampler,
+        sampler: TSSampler,
     ):
 
         self.sampler = sampler
