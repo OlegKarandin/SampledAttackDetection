@@ -7,7 +7,7 @@ import pandas as pd
 from scapy.all import Packet
 
 from networking.common_lingo import STRING_TO_ATTACKS, Attack
-from sampleddetection.readers import SampleLike
+from sampleddetection.datastructures import SampleLike
 
 # The order in which I stored them in the file
 # TODO:: Remove this hardcoded danger.

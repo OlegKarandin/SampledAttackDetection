@@ -101,7 +101,7 @@ class DynamicWindowSampler(TSSampler):
             )  # Assumes that we will start `window_skip` after inference
         else:
             cur_time = (
-                self.timeseries_rdr[idx_firstpack].time - 1e-7
+                self.timeseries_rdr.getTimestamp(idx_firstpack) - 1e-7
             )  # Assuming micro sec packet capture
 
         next_stop = cur_time + window_length
@@ -117,7 +117,7 @@ class DynamicWindowSampler(TSSampler):
         idx_cursample = idx_firstpack
         while (
             idx_cursample < self.max_idx
-            and self.timeseries_rdr[idx_cursample].time < next_stop
+            and self.timeseries_rdr.getTimestamp(idx_cursample) < next_stop
         ):
             # These are a few weird lines.
             # It takes the very general `cursample` SampleLike and transforms it into amore specific on_packet_received
@@ -126,8 +126,9 @@ class DynamicWindowSampler(TSSampler):
             specific_sample_type: SampleLike = self.specific_samplefactory.make_sample(
                 cursample
             )
+            cursample_time = self.timeseries_rdr.getTimestamp(idx_cursample)
             self.logger.debug(
-                f"at idx {idx_cursample} we see a timestamp of {cursample.time}({epoch_to_clean(cursample.time)})"
+                f"at idx {idx_cursample} we see a timestamp of {cursample_time}({epoch_to_clean(cursample_time)})"
             )
             self.logger.debug(
                 f"And the actual view of this sample looks like {cursample}"
@@ -382,9 +383,9 @@ def binary_search(cpt_rdr: AbstractTimeSeriesReader, target_time: float) -> int:
     low, high = binary_till_two(target_time, cpt_rdr)
     # Once we have two closest elements we check the closes
     # Argmax it
-    if target_time <= float(cpt_rdr[low].time) and abs(
-        target_time - float(cpt_rdr[low].time)
-    ) < abs(target_time - float(cpt_rdr[high].time)):
+    if target_time <= float(cpt_rdr.getTimestamp(low)) and abs(
+        target_time - float(cpt_rdr.getTimestamp(low))
+    ) < abs(target_time - float(cpt_rdr.getTimestamp(high))):
         return low
     else:
         return high
