@@ -2,8 +2,10 @@ import random
 from logging import DEBUG
 from typing import Sequence, Tuple, Union
 
+import numpy as np
+
 from sampleddetection.datastructures import Action, State
-from sampleddetection.samplers import TSSampler
+from sampleddetection.samplers import FeatureFactory, TSSampler
 from sampleddetection.utils import clamp, setup_logger, within
 
 
@@ -26,12 +28,13 @@ class SamplingEnvironment:
     def __init__(
         self,
         sampler: TSSampler,
-        observable_features: Sequence,
+        feature_factory: FeatureFactory,
     ):
 
         self.sampler = sampler
         self.logger = setup_logger(self.__class__.__name__, DEBUG)
-        self.observable_features = observable_features
+        # self.observable_features = observable_features
+        self.feature_factory = feature_factory
 
         # Internal representation of State. Will be returned to viewer as in `class State` language
         self.starting_time = float("-inf")
@@ -71,12 +74,14 @@ class SamplingEnvironment:
         # Do Sampling
         samples = self.sampler.sample(starting_time, winskip, winlen)
 
+        arraylike_features = self.feature_factory.make_feature(samples)
+
         return_state = State(
             time_point=starting_time,
             window_skip=winskip,
             window_length=winlen,
-            observations=samples,
-            observable_features=self.observable_features,
+            observations=arraylike_features,
+            # observable_features=self.observable_features,
         )
 
         # TODO: calculatae the reward
@@ -96,18 +101,22 @@ class SamplingEnvironment:
 
         self._initialize_triad(starting_time, winskip, winlen)
 
-        samples = self.sampler.sample(
+        samples: Sequence = self.sampler.sample(
             self.starting_time,
             self.cur_winskip,
             self.cur_winlen,
         )
 
+        self.logger.info(f"We get a sample that looks like")
+
+        arraylike_features = self.feature_factory.make_feature(samples)
+
         return_state = State(
             time_point=self.starting_time,
             window_skip=self.cur_winskip,
             window_length=self.cur_winlen,
-            observations=samples,
-            observable_features=self.observable_features,
+            observations=arraylike_features,
+            # observable_features=self.observable_features,
         )
         return return_state
 

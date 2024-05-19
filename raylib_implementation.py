@@ -13,7 +13,11 @@ import gymnasium as gym
 import torch
 from ray.rllib.algorithms import ppo
 
+# NOTE: Importing this is critical to load all model automatically.
 import gymenvs
+from networking.common_lingo import Attack
+from networking.netfactories import NetworkFeatureFactory, NetworkSampleFactory
+from sampleddetection.utils import setup_logger
 
 
 def str_to_dict(s):
@@ -74,7 +78,24 @@ def argsies():
 if __name__ == "__main__":
     args = argsies()
 
+    # Make the logger
+    logger = setup_logger(__name__)
+    logger.info("Starting main part of script.")
     # gymenvs.register_env()
+
+    # Define which labels one expects on the given dataset
+
+    attacks_to_detect = [
+        Attack.SLOWLORIS,
+        Attack.SLOWHTTPTEST,
+        Attack.HULK,
+        Attack.GOLDENEYE,
+        # Attack.HEARTBLEED. # Takes too long find in dataset.
+    ]
+
+    # Specify the NetworkSampleFactor
+    sample_factory = NetworkSampleFactory()
+    feature_factory = NetworkFeatureFactory(args.obs_elements, attacks_to_detect)
 
     # Make the environment
     print("Make the environment")
@@ -84,6 +105,8 @@ if __name__ == "__main__":
         num_obs_elements=len(args.obs_elements),
         num_possible_actions=args.num_possible_actions,
         action_idx_to_direction=args.action_dir,
+        sample_factory=sample_factory,
+        feature_factory=feature_factory,
     )
 
     print("Resetting the environment")

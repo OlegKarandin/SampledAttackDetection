@@ -1,11 +1,12 @@
 import logging
 from abc import ABC, abstractmethod
 from math import ceil
-from typing import Any, List, Sequence, Tuple
+from typing import Any, Generic, List, Sequence, Tuple, TypeVar
 
 import numpy as np
 
-from sampleddetection.readers.readers import AbstractTimeSeriesReader, Sample
+from sampleddetection.datastructures import Sample, SampleLike
+from sampleddetection.readers import AbstractTimeSeriesReader
 
 from .common_lingo import TimeWindow
 from .utils import epoch_to_clean, setup_logger
@@ -33,6 +34,22 @@ class TSSampler(ABC):
         pass
 
 
+GenericSample = TypeVar("GenericSample")
+
+
+class SampleFactory(ABC):
+
+    @abstractmethod
+    def make_sample(self, raw_sample: Any) -> Sample:
+        pass
+
+
+class FeatureFactory(ABC):
+    @abstractmethod
+    def make_feature(self, raw_sample_list: Sequence[SampleLike]) -> np.ndarray:
+        pass  # TODO: Figure out what it is that we want to return here.
+
+
 class DynamicWindowSampler(TSSampler):
     """
     Sampler Agnostic to Type of data being dealt with.
@@ -41,11 +58,13 @@ class DynamicWindowSampler(TSSampler):
     def __init__(
         self,
         timeseries_rdr: AbstractTimeSeriesReader,
+        specific_samplefactory: SampleFactory,
         lowest_resolution: float = 1e-6,
     ):
         self.lowest_resolution = lowest_resolution
         self.logger = setup_logger(__class__.__name__, logging.DEBUG)
         self.timeseries_rdr = timeseries_rdr
+        self.specific_samplefactory = specific_samplefactory
 
         self.max_idx = len(self.timeseries_rdr) - 1
 
@@ -75,6 +94,7 @@ class DynamicWindowSampler(TSSampler):
             e  - initial_precise: Whether we shoudl start precisely at the provided time or at the closest packet to it
         """
         idx_firstpack = binary_search(self.timeseries_rdr, starting_time)
+
         if initial_precise:
             cur_time = (
                 starting_time + window_skip
@@ -89,7 +109,7 @@ class DynamicWindowSampler(TSSampler):
         # flow_session = SampledFlowSession(
         #     sampwindow_length=window_length, sample_initpos=starting_time
         # )
-        samples = []
+        samples: Sequence[SampleLike] = []
 
         cursample = self.timeseries_rdr[idx_firstpack]
         self.logger.debug(f"starting at time {cur_time}")
@@ -99,12 +119,21 @@ class DynamicWindowSampler(TSSampler):
             idx_cursample < self.max_idx
             and self.timeseries_rdr[idx_cursample].time < next_stop
         ):
-            cursample = self.timeseries_rdr[idx_cursample]
+            # These are a few weird lines.
+            # It takes the very general `cursample` SampleLike and transforms it into amore specific on_packet_received
+            # Here until I can come up with a better solution.
+            cursample: SampleLike = self.timeseries_rdr[idx_cursample]
+            specific_sample_type: SampleLike = self.specific_samplefactory.make_sample(
+                cursample
+            )
             self.logger.debug(
                 f"at idx {idx_cursample} we see a timestamp of {cursample.time}({epoch_to_clean(cursample.time)})"
             )
+            self.logger.debug(
+                f"And the actual view of this sample looks like {cursample}"
+            )
             # flow_session.on_packet_received(curpack)
-            samples.append(Sample(cursample))
+            samples.append(specific_sample_type)
             idx_cursample += 1
 
         # TODO: Create a check to ensure we are not going over the margin here
@@ -159,9 +188,10 @@ class NoReplacementSampler(DynamicWindowSampler):
     def __init__(
         self,
         csvrdr: AbstractTimeSeriesReader,
+        specific_sample_factory: SampleFactory,
         lowest_resolution: float = 1e-6,
     ):
-        super().__init__(csvrdr, lowest_resolution)
+        super().__init__(csvrdr, specific_sample_factory, lowest_resolution)
         self.sampled_windows: List[TimeWindow] = []
 
     def sample(
@@ -198,7 +228,7 @@ class NoReplacementSampler(DynamicWindowSampler):
             TimeWindow(start=starting_time, end=starting_time + window_length)
         )
 
-        # Sample as we normally would
+        # Sample sequence as we normally would
         return super().sample(
             starting_time, window_skip, window_length, initial_precise
         )

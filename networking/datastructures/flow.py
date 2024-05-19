@@ -3,10 +3,11 @@ from typing import Any, NamedTuple
 
 from scapy.all import Packet
 
-from sampleddetection.datastructures.packet_like import PacketLike
+from networking.common_lingo import ATTACK_TO_STRING, Attack
+from networking.datastructures.packet_like import PacketLike
+from sampleddetection.common_lingo import TimeWindow
+from sampleddetection.utils import get_statistics
 
-from ..common_lingo import ATTACK_TO_STRING, STRING_TO_ATTACKS, Attack, TimeWindow
-from ..utils import get_statistics
 from . import constants
 from .context import packet_flow_key
 from .context.packet_direction import PacketDirection

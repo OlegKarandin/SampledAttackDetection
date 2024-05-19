@@ -1,8 +1,7 @@
 from typing import List, Tuple
 
-from sampleddetection.datastructures.context.packet_direction import PacketDirection
-from sampleddetection.datastructures.packet_like import PacketLike
-from sampleddetection.utils import FLAGS_TO_VAL
+from networking.datastructures.context.packet_direction import PacketDirection
+from networking.datastructures.packet_like import PacketLike
 
 
 class FlagCount:

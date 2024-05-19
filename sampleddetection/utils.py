@@ -23,11 +23,11 @@ def setup_logger(logger_name: str, logging_level=logging.INFO):
     Helper function for setting up logger both in stdout and file
     """
     logger = logging.getLogger(logger_name)
-    logger.setLevel(logging_level)
+    logger.setLevel(logging.DEBUG)
 
     # create console handler with a higher log level
     ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
+    ch.setLevel(logging_level)
 
     # create file handler which logs even debug messages
     current_cwd = os.getcwd()

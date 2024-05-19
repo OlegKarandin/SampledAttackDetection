@@ -1,11 +1,13 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Sequence
+from typing import Dict
 
 import numpy as np
+import pandas as pd
 from torch import Tensor
 
 
 # Just define by properties one expects it to have
+# CHECK: if we actually want to use this approach
 class StateLike(ABC):
     @abstractmethod
     def as_tensor(self, extra_data: Dict) -> Tensor:
@@ -18,18 +20,26 @@ class State(StateLike):
         time_point: float,
         window_skip: float,
         window_length: float,
-        observations: Sequence,
-        observable_features: Sequence,
+        # First axis will index individual samples
+        observations: np.ndarray,
+        # observations: Sequence,
+        # observable_features: Sequence[Sample],
     ):
         self.time_point = time_point
         self.cur_window_skip = window_skip
         self.cur_window_length = window_length
         self.observations = observations
         # Not all features in flow_sesh are to be observed
-        self.observable_features = observable_features
+        # self.observable_features = observable_features
 
     # TODO: implement as we find it necessary
     def as_tensor(self, extra_data: Dict) -> Tensor:
+        raise NotImplementedError
+
+    def as_numpy(self, extra_delta: Dict) -> np.ndarray:
+        raise NotImplementedError
+
+    def as_arraylike(self, extra_data: Dict) -> np.ndarray:
         raise NotImplementedError
 
 
@@ -58,6 +68,42 @@ class Action(np.ndarray):
     @property
     def winskip_delta(self):
         return self[:, 1]
+
+
+class SampleLike(ABC):
+    """
+    Define a few attributes that samples must have
+    """
+
+    @property
+    @abstractmethod
+    def time(self) -> float:
+        pass
+
+
+# TODO: A bit loose for my liking
+class Sample(SampleLike):
+    def __init__(self, item):
+        self.item = item
+
+    @property
+    def time(self) -> float:
+        """The time property."""
+        return self.item.time
+
+
+class CSVSample(SampleLike):
+    def __init__(self, row: pd.Series):
+        self.item = row
+
+    @property
+    def time(self) -> float:
+        """The time property."""
+        return self.item["timestamp"]
+
+    def __str__(self) -> str:
+        str = f"CSVSample: {self.item}"
+        return str
 
 
 # class Action(torch.Tensor):

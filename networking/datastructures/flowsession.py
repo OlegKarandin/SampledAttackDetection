@@ -3,14 +3,12 @@
 """
 
 from enum import Enum
-from typing import Dict, Sequence, Tuple, Union
+from typing import Dict, Sequence, Tuple
 
-from scapy.packet import Packet
-from scapy.sessions import DefaultSession
-
+from networking.common_lingo import ATTACK_TO_STRING
 from networking.datastructures.packet_like import PacketLike
-from sampleddetection.common_lingo import ATTACK_TO_STRING, Attack, TimeWindow
-from sampleddetection.utils import setup_logger, unusable
+from sampleddetection.common_lingo import TimeWindow
+from sampleddetection.utils import unusable
 
 from .constants import EXPIRED_UPDATE, GARBAGE_COLLECT_PACKETS
 from .context.packet_direction import PacketDirection
@@ -30,9 +28,9 @@ class SampledFlowSession:
         self.packets_count = 0
 
         # Sample Variables
-        # TODO: Ensure these things are being passed
-        self.sampwindow_length = kwargs["sampwindow_length"]
-        self.samp_curinitpos = kwargs["sample_initpos"]
+        # CHECK: If we actually need to use below and its references
+        # self.sampwindow_length = kwargs["sampwindow_length"]
+        # self.samp_curinitpos = kwargs["sample_initpos"]
 
         self.time_window = TimeWindow(-1, -1)
 
@@ -45,9 +43,9 @@ class SampledFlowSession:
         # self.garbage_collect(None)
         return None
 
-    def update_sampling_params(self, samp_freq, samp_wind, samp_curinitpos) -> None:
-        self.sampwindow_length = samp_wind
-        self.samp_curinitpos = samp_curinitpos
+    # def update_sampling_params(self, samp_freq, samp_wind, samp_curinitpos) -> None:
+    #     self.sampwindow_length = samp_wind
+    #     self.samp_curinitpos = samp_curinitpos
 
     def on_packet_received(self, packet: PacketLike):
         """
@@ -58,6 +56,10 @@ class SampledFlowSession:
         -----------
         Outer function will make sure we have not met the end of the sampling window.
         """
+
+        assert isinstance(
+            packet, PacketLike
+        ), "Assertion Error: Packet received is expected to be of type `PacketLike`"
 
         count = 0
         direction = PacketDirection.FORWARD
@@ -145,6 +147,14 @@ class SampledFlowSession:
         for _, flow in self.flows.items():
             packets.extend(flow.packets)
         return packets
+
+    def reset(self):
+        """
+        Clears all state in this SampledFlowSession
+        """
+        self.flows.clear()
+        self.packets_count = 0
+        self.time_window = TimeWindow(-1, -1)
 
 
 @unusable(reason="No longer using scapy sniffers", date="< Mar 29, 2024")

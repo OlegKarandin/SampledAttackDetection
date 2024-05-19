@@ -10,7 +10,7 @@ from scapy.all import Packet, PcapReader, rdpcap, wrpcap
 from scapy.plist import PacketList
 from tqdm import tqdm
 
-from sampleddetection.readers.readers import AbstractTimeSeriesReader
+from sampleddetection.readers import AbstractTimeSeriesReader
 from sampleddetection.utils import setup_logger
 
 MAX_MEM = 15e9  # GB This is as mcuh as we want in ram at once

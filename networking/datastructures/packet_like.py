@@ -1,19 +1,22 @@
 import ast
 import json
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List
+from abc import abstractmethod
+from typing import Dict, List
 
 import pandas as pd
 from scapy.all import Packet
 
-from ..common_lingo import ATTACK_TO_STRING, STRING_TO_ATTACKS, Attack
+from networking.common_lingo import STRING_TO_ATTACKS, Attack
+from sampleddetection.readers import SampleLike
 
 # The order in which I stored them in the file
 # TODO:: Remove this hardcoded danger.
 order = ["FIN", "SYN", "RST", "PSH", "ACK", "URG", "ECE", "CWR"]
 
 
-class PacketLike(ABC):
+class PacketLike(SampleLike):
+
+    # time property will be propvided by SampleLike
     @property
     @abstractmethod
     def time(self) -> float:

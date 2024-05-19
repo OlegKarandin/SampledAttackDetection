@@ -3,7 +3,7 @@
 
 from typing import Tuple
 
-from sampleddetection.datastructures.packet_like import PacketLike
+from networking.datastructures.packet_like import PacketLike
 
 from .packet_direction import PacketDirection
 

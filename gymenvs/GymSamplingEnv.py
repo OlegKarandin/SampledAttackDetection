@@ -5,10 +5,15 @@ import gymnasium as gym
 import numpy as np
 from gymnasium.core import ActType
 
-from sampleddetection.datastructures import Action, State
+from networking.netfactories import NetworkFeatureFactory, NetworkSampleFactory
+from sampleddetection.datastructures import State
 from sampleddetection.environments import SamplingEnvironment
-from sampleddetection.readers.readers import CSVReader
-from sampleddetection.samplers import NoReplacementSampler
+from sampleddetection.readers import CSVReader
+from sampleddetection.samplers import (
+    FeatureFactory,
+    NoReplacementSampler,
+    SampleFactory,
+)
 
 
 class GymSamplingEnv(gym.Env):
@@ -25,17 +30,17 @@ class GymSamplingEnv(gym.Env):
         num_obs_elements: int,
         num_possible_actions: int,
         action_idx_to_direction: Dict[int, int],  # TODO: maybe change to simply scaling
-        observable_features: Sequence,
+        sample_factory: SampleFactory,
+        feature_factory: FeatureFactory,
     ):
 
-        # Get Sampler
+        # Get Dependency Injection elements.
         csv_path = Path(csv_path_str)
-        # TODO: we have to check this NoReplacementSampler is not too slow
-        # Create the Reader
         csv_reader = CSVReader(csv_path)
-        meta_sampler = NoReplacementSampler(csv_reader)
+        # TODO: we have to check this NoReplacementSampler is not too slow
+        meta_sampler = NoReplacementSampler(csv_reader, sample_factory)
 
-        self.env = SamplingEnvironment(meta_sampler, observable_features)
+        self.env = SamplingEnvironment(meta_sampler, feature_factory=feature_factory)
 
         self.action_idx_to_direction = action_idx_to_direction
 
@@ -78,6 +83,18 @@ class GymSamplingEnv(gym.Env):
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)  # type:ignore
         # Return observations as are expected
-        return self.env.reset()
+
+        # Form observation and form information
+        state: State = self.env.reset()
+
+        obs_shape = state.observations.shape
+        assert len(obs_shape) == 2, "Incorrect observation shape."
+
+        # TODO: Think about whether or not we want to leave it like this.
+        aggregated_observation = state.observations.mean(axis=0)
+
+        info = {}  # CHECK: If we can actually use it for something.
+
+        return aggregated_observation, info
 
     # Perhaps add a `render` method for visualization.
