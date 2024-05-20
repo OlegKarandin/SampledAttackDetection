@@ -10,10 +10,74 @@ from scapy.all import Packet, PcapReader, rdpcap, wrpcap
 from scapy.plist import PacketList
 from tqdm import tqdm
 
+from sampleddetection.datastructures import CSVSample
 from sampleddetection.readers import AbstractTimeSeriesReader
 from sampleddetection.utils import setup_logger
 
 MAX_MEM = 15e9  # GB This is as mcuh as we want in ram at once
+
+
+# class NetCSVReader(AbstractTimeSeriesReader):
+#     """
+#     Interface for CSV
+#     Expectations:
+#         - csv must have timestamp column
+#     """
+#
+#     def __init__(self, csv_path: Path, cols_to_norm_name):
+#         """
+#         Parameters
+#         ~~~~~~~~~~
+#             mdata_path : Path to store meta data after having a pass over pcap file and forming an index
+#         """
+#         # Parameters
+#         self.logger = setup_logger(__class__.__name__)
+#         self.csv_path = csv_path
+#         self.logger.info("Reading csv...")
+#         strt = time()
+#         self.csv_df = pd.read_csv(csv_path)
+#
+#         # Normalization
+#         self.logger.debug("Is there something wrong with this")
+#         self.logger.debug(f"The ones that we are requesting are {cols_to_norm_name}")
+#         self.logger.debug(
+#             f"Our actual columsn in this csv_df are {self.csv_df.columns}"
+#         )
+#         cols_of_interest = self.csv_df[cols_to_norm_name]
+#         self.csv_df[cols_to_norm_name] = (
+#             cols_of_interest - cols_of_interest.mean()
+#         ) / cols_of_interest.std()
+#
+#         self.logger.info(
+#             f"CSV loaded, took {time() - strt: 4.2f} seconds with {len(self.csv_df)} length"
+#         )
+#
+#         # TODO: Check this to work properly
+#         self.first_sniff_time: float = self.csv_df.loc[0, "timestamp"].astype(float)
+#         self.last_sniff_time: float = self.csv_df.loc[
+#             self.csv_df.index[-1], "timestamp"
+#         ].astype(float)
+#
+#     def __len__(self):
+#         return len(self.csv_df)
+#
+#     def __getitem__(self, idx) -> CSVSample:
+#         # return self.csv_df.iloc[idx]
+#         return CSVSample(self.csv_df.iloc[idx])
+#
+#     def getTimestamp(self, idx):
+#         return self.csv_df.iloc[idx]["timestamp"]
+#
+#     @property
+#     def init_time(self) -> float:
+#         return self.csv_df.iloc[0]["timestamp"]
+#
+#     @property
+#     def fin_time(self) -> float:
+#         """
+#         Final Timestamp
+#         """
+#         return self.csv_df.iloc[-1]["timestamp"]
 
 
 class CaptureReader(AbstractTimeSeriesReader):

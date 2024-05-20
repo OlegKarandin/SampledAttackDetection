@@ -7,16 +7,23 @@ import argparse
 import ast
 import json
 from argparse import ArgumentParser
+from pathlib import Path
 from typing import Dict
 
 import gymnasium as gym
+import ray
 import torch
+from gymnasium.wrappers.normalize import NormalizeObservation
 from ray.rllib.algorithms import ppo
+from ray.rllib.algorithms.ppo import PPOConfig
+from ray.tune.logger import pretty_print
+from ray.tune.registry import register_env
 
 # NOTE: Importing this is critical to load all model automatically.
 import gymenvs
 from networking.common_lingo import Attack
 from networking.netfactories import NetworkFeatureFactory, NetworkSampleFactory
+from sampleddetection.readers import CSVReader
 from sampleddetection.utils import setup_logger
 
 
@@ -59,6 +66,10 @@ def argsies():
     # Parse the argument
     args = ap.parse_args()
 
+    assert Path(
+        args.csv_path_str
+    ).exists(), f"--csv_path_str {args.csv_path_str} does not exist."
+
     # Check on their values
     ## Add Values Manually
     with open(args.paradigm_constants, "r") as f:
@@ -73,6 +84,21 @@ def argsies():
         args.action_dir = action_dir
 
     return args
+
+
+def env_wrapper(env) -> gym.Env:
+    env = gym.make(
+        "NetEnv-v0",
+        num_obs_elements=len(args.obs_elements),
+        num_possible_actions=args.num_possible_actions,
+        data_reader=data_reader,
+        action_idx_to_direction=args.action_dir,
+        sample_factory=sample_factory,
+        feature_factory=feature_factory,
+    )
+    # Use wrapper to normalize the data:
+    env = NormalizeObservation(env)
+    return env
 
 
 if __name__ == "__main__":
@@ -93,25 +119,55 @@ if __name__ == "__main__":
         # Attack.HEARTBLEED. # Takes too long find in dataset.
     ]
 
+    csv_path = Path(args.csv_path_str)
+    # Columns to Normalize
+    columns_to_normalize = [
+        "fwd_pkt_len_max",
+        "fwd_pkt_len_min",
+        "fwd_pkt_len_mean",
+        "bwd_pkt_len_max",
+        "bwd_pkt_len_min",
+        "bwd_pkt_len_mean",
+        "flow_byts_s",
+        "flow_pkts_s",
+        "flow_iat_mean",
+        "flow_iat_max",
+        "flow_iat_min",
+        "fwd_iat_mean",
+        "fwd_iat_max",
+        "fwd_iat_min",
+        "bwd_iat_max",
+        "bwd_iat_min",
+        "bwd_iat_mean",
+        "pkt_len_min",
+        "pkt_len_max",
+        "pkt_len_mean",
+    ]
+
+    # Create Data Reader
+    data_reader = CSVReader(csv_path)
+
     # Specify the NetworkSampleFactor
     sample_factory = NetworkSampleFactory()
     feature_factory = NetworkFeatureFactory(args.obs_elements, attacks_to_detect)
 
     # Make the environment
     print("Make the environment")
-    env = gym.make(
-        "NetEnv-v0",
-        csv_path_str=args.csv_path_str,
-        num_obs_elements=len(args.obs_elements),
-        num_possible_actions=args.num_possible_actions,
-        action_idx_to_direction=args.action_dir,
-        sample_factory=sample_factory,
-        feature_factory=feature_factory,
-    )
+    register_env("WrappedNetEnv", env_wrapper)
 
     print("Resetting the environment")
     environment_seed = 42
-    env.reset()
+    algo = (
+        PPOConfig()
+        .env_runners(num_env_runners=1)
+        .resources(num_gpus=0)
+        .environment(env="WrappedNetEnv")
+        .build()
+    )
+
+    for i in range(20):
+        result = algo.train()
+        print(pretty_print(result))
 
     # Build a Algorithm object from the config and run 1 training iteration.
     # algo = ppo.PPO(env=MetaEnv, config={"num_obs_elements": args.num_obs_elements})

@@ -2,6 +2,7 @@
 This file is more so to try to replicate the statistics obtained from CICFLOWMeter 
 but with a smaller file contianing only the necessary data.
 """
+
 import logging
 from time import time
 
@@ -10,11 +11,10 @@ from scapy.all import Packet, PcapReader, rdpcap, wrpcap
 from scapy.plist import PacketList
 from tqdm import tqdm
 
-from sampleddetection.datastructures.context.packet_flow_key import (
-    get_packet_flow_key,
-    get_simple_tuple,
-)
-from sampleddetection.samplers.window_sampler import DynamicWindowSampler
+# TODO: Clean this mess
+# from networking.readers.reader
+# from sampleddetection.readers import CSVPacketReader
+# from sampleddetection.samplers.window_sampler import DynamicWindowSampler
 from sampleddetection.statistics.window_statistics import get_flows
 
 logger = logging.getLogger("MAIN")
@@ -49,7 +49,8 @@ def sampler_test():
     logger.info(f"Quick Head look is :{file.head()}")
 
     logger.info("Starting with the sampling")
-    sampler = DynamicWindowSampler(args.src_file, args.window_skip, args.window_length)
+    csv_reader = CSVReader(args.src_file)
+    sampler = DynamicWindowSampler(csv_reader, args.window_length)
 
     initial_time = sampler.caprdr.first_time + 1.0
     packet_list: PacketList = sampler.sample(0, initial_time, 3.0)

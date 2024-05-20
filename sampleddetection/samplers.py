@@ -49,6 +49,10 @@ class FeatureFactory(ABC):
     def make_feature(self, raw_sample_list: Sequence[SampleLike]) -> np.ndarray:
         pass  # TODO: Figure out what it is that we want to return here.
 
+    @abstractmethod
+    def get_feature_strlist(self) -> Sequence[str]:
+        pass
+
 
 class DynamicWindowSampler(TSSampler):
     """

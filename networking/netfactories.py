@@ -72,6 +72,9 @@ class NetworkFeatureFactory(FeatureFactory):
         )
         return arraylike_features
 
+    def get_feature_strlist(self):
+        return self.observable_features
+
     def _get_flow_feats(self, feat_dict):
         sample_features = []
         for feat_name, v in feat_dict.items():
