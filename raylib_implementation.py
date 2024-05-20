@@ -20,7 +20,7 @@ from ray.tune.logger import pretty_print
 from ray.tune.registry import register_env
 
 # NOTE: Importing this is critical to load all model automatically.
-import gymenvs
+from gymenvs.explicit_registration import explicit_registration
 from networking.common_lingo import Attack
 from networking.netfactories import NetworkFeatureFactory, NetworkSampleFactory
 from sampleddetection.readers import CSVReader
@@ -87,8 +87,12 @@ def argsies():
 
 
 def env_wrapper(env) -> gym.Env:
+    # Call the registration
+    explicit_registration()
+
+    print("Trying to make NETENVE")
     env = gym.make(
-        "NetEnv-v0",
+        "NetEnv",
         num_obs_elements=len(args.obs_elements),
         num_possible_actions=args.num_possible_actions,
         data_reader=data_reader,
@@ -96,8 +100,9 @@ def env_wrapper(env) -> gym.Env:
         sample_factory=sample_factory,
         feature_factory=feature_factory,
     )
+    print("MANAGED TO MAKE NETENV")
     # Use wrapper to normalize the data:
-    env = NormalizeObservation(env)
+    # env = NormalizeObservation(env)
     return env
 
 
