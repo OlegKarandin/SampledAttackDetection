@@ -46,7 +46,9 @@ class SampleFactory(ABC):
 
 class FeatureFactory(ABC):
     @abstractmethod
-    def make_feature(self, raw_sample_list: Sequence[SampleLike]) -> np.ndarray:
+    def make_feature(
+        self, raw_sample_list: Sequence[SampleLike]
+    ) -> Tuple[np.ndarray, np.ndarray]:  # Features and Labels
         pass  # TODO: Figure out what it is that we want to return here.
 
     @abstractmethod

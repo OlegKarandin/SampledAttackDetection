@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict
+from typing import Dict, NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -43,31 +43,36 @@ class State(StateLike):
         raise NotImplementedError
 
 
-class Action(np.ndarray):
-    """
-    Custom ndarray to enforce universal dimensionality and provide specific properties.
-    """
+# class Action(np.ndarray):
+#     """
+#     Custom ndarray to enforce universal dimensionality and provide specific properties.
+#     """
+#
+#     def __new__(cls, data, *args, **kwargs):
+#         # Convert data to np.ndarray if it's not already
+#         if isinstance(data, list):
+#             data = np.array(data)
+#             assert data.shape[1] == 2, "Data should have exactly two columns"
+#         elif isinstance(data, np.ndarray):
+#             assert data.shape[1] == 2, "Data should have exactly two columns"
+#         else:
+#             raise TypeError("Data should be a list or np.ndarray")
+#         # Create the ndarray instance
+#         obj = np.asarray(data).view(cls)
+#         return obj
+#
+#     @property
+#     def winlength_delta(self):
+#         return self[:, 0]
+#
+#     @property
+#     def winskip_delta(self):
+#         return self[:, 1]
 
-    def __new__(cls, data, *args, **kwargs):
-        # Convert data to np.ndarray if it's not already
-        if isinstance(data, list):
-            data = np.array(data)
-            assert data.shape[1] == 2, "Data should have exactly two columns"
-        elif isinstance(data, np.ndarray):
-            assert data.shape[1] == 2, "Data should have exactly two columns"
-        else:
-            raise TypeError("Data should be a list or np.ndarray")
-        # Create the ndarray instance
-        obj = np.asarray(data).view(cls)
-        return obj
 
-    @property
-    def winlength_delta(self):
-        return self[:, 0]
-
-    @property
-    def winskip_delta(self):
-        return self[:, 1]
+class Action(NamedTuple):
+    winskip_delta: int
+    winlen_delta: int
 
 
 class SampleLike(ABC):

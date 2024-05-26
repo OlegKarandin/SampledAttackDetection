@@ -6,7 +6,7 @@ import numpy as np
 from gymnasium.core import ActType
 
 from networking.netfactories import NetworkFeatureFactory, NetworkSampleFactory
-from sampleddetection.datastructures import State
+from sampleddetection.datastructures import Action, State
 from sampleddetection.environments import SamplingEnvironment
 from sampleddetection.readers import AbstractTimeSeriesReader, CSVReader
 from sampleddetection.samplers import (
@@ -57,7 +57,11 @@ class GymSamplingEnv(gym.Env):
             high=np.full((n,), high_value, dtype=np.float32),
             dtype=np.float32,
         )
-        self.action_space = gym.spaces.Discrete(num_possible_actions)
+        self.action_space = gym.spaces.Box(
+            low=np.array([0, 0]),
+            high=np.array([num_possible_actions, num_possible_actions]),
+            dtype=np.float32,
+        )
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2, i.e. MultiDiscrete([size, size]).
         # CHECK: if these are even necessary
@@ -65,20 +69,45 @@ class GymSamplingEnv(gym.Env):
         self.window = None
         self.clock = None
 
-    def step(self, action: ActType):
+    # def step(self, action: ActType):
+    def step(self, action: np.ndarray):
         """
-        Must return a 5-tuple in accordance to gym.Env
+        Interface into applications that use Gym environments.
+
+        Variables (1)
+        ---------
+            - action: a 2-element vector containing winskip_delta and winskip_delta (in that order)
+
+        Returns (5)
+        ---------
+            - observation (dict)
+            - reward (float)
+            - terminated (bool): Whether it has terminated or not
+            - trucated (bool): Not sure
+            - info (dict): unsure
         """
+
         # CHECK: since action_idx is of type ActType
         # maybe we have to check its provenance
-        actual_action = int(self.action_idx_to_direction[action])
+        print(f"OK, AGAIN, Action type ({type(action)}) looks like: {action}")
+        # actual_action = int(self.action_idx_to_direction[action])
+
+        # Create Action in same language
+        action_message = Action(winskip_delta=action[0], winlen_delta=action[1])
 
         # Then we get the action environment to act on it
-        state, reward = self.env.step(actual_action)
+        state, reward = self.env.step(action_message)
         # Tuple to return is (observation, reward, terminated, truncaed, info)
 
+        terminated = False
+        truncated = False
+        info = {}
+
+        observation = state.observations.mean(axis=0)
+
+        self.logger.debug(f"Observation is looking like {observation}")
         # We must convv
-        return self.env(action)
+        return observation, reward, terminated, truncated, info
 
     def _get_obs(self, state: State):
         # State will return a list so we just have to return that as well

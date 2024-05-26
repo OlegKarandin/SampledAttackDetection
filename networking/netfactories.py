@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Dict, Sequence, Set
+from typing import Dict, Sequence, Set, Tuple
 
 import numpy as np
 
@@ -47,7 +47,9 @@ class NetworkFeatureFactory(FeatureFactory):
         }
         # For t
 
-    def make_feature(self, raw_sample_list: Sequence[PacketLike]) -> np.ndarray:
+    def make_feature(
+        self, raw_sample_list: Sequence[PacketLike]
+    ) -> Tuple[np.ndarray, np.ndarray]:
         # Clean the previous flow session
         flowsession = SampledFlowSession()
         flowsession.reset()
@@ -65,6 +67,9 @@ class NetworkFeatureFactory(FeatureFactory):
         for flow_key, feat_dict in data.items():
             # Fetch all features as specified by keys in self.observable_features
             raw_features.append(self._get_flow_feats(feat_dict))
+            # Also fetch the labels for each feature.
+            raw_labels.append(self.get_feature_strlist)
+
         arraylike_features = np.array(raw_features)
 
         self.logger.debug(

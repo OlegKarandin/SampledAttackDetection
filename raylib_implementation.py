@@ -102,7 +102,7 @@ def env_wrapper(env) -> gym.Env:
     )
     print("MANAGED TO MAKE NETENV")
     # Use wrapper to normalize the data:
-    # env = NormalizeObservation(env)
+    env = NormalizeObservation(env)
     return env
 
 

@@ -5,6 +5,7 @@ from typing import Sequence, Tuple, Union
 import numpy as np
 
 from sampleddetection.datastructures import Action, State
+from sampleddetection.reward_signals import RewardCalculatorLike
 from sampleddetection.samplers import FeatureFactory, TSSampler
 from sampleddetection.utils import clamp, setup_logger, within
 
@@ -29,17 +30,25 @@ class SamplingEnvironment:
         self,
         sampler: TSSampler,
         feature_factory: FeatureFactory,
+        reward_calculator: RewardCalculatorLike,
     ):
 
         self.sampler = sampler
         self.logger = setup_logger(self.__class__.__name__, DEBUG)
         # self.observable_features = observable_features
         self.feature_factory = feature_factory
+        self.reward_calculator = reward_calculator
 
         # Internal representation of State. Will be returned to viewer as in `class State` language
         self.starting_time = float("-inf")
-        self.cur_winlen = float("-inf")
-        self.cur_winskip = float("-inf")
+        self.cur_state = State(
+            time_point=float("inf"),
+            window_skip=float("inf"),
+            window_length=float("inf"),
+            observations=np.ndarray([0]),
+        )
+        # self.cur_winlen = float("-inf")
+        # self.cur_winskip = float("-inf")
 
     def step(self, action: Action) -> Tuple[State, float]:
         """
@@ -51,6 +60,10 @@ class SamplingEnvironment:
         status = [self.starting_time > 0, self.cur_winskip > 0, self.cur_winskip > 0]
         assert all(status), "Make sure you initialize enviornment properly"
 
+        self.logger.debug(
+            f"The action is of type {type(action)} and looks like {action}"
+        )
+
         # Get current positions
         self.cur_winskip = clamp(
             self.cur_winskip + action.winskip_delta,
@@ -58,36 +71,43 @@ class SamplingEnvironment:
             self.WINDOW_SKIP_RANGE[1],
         )
         self.cur_winlen = clamp(
-            self.cur_winlen + action.winlength_delta,
+            self.cur_winlen + action.winlen_delta,
             self.WINDOW_LENGTH_RANGE[0],
             self.WINDOW_SKIP_RANGE[1],
         )
-        return self._step(self.starting_time, self.cur_winskip, self.cur_winlen)
+        self.cur_time = self.cur_winskip + self.cur_winlen
+        new_state, new_reward = self._step(
+            self.starting_time, self.cur_winskip, self.cur_winlen
+        )
 
-    def _step(self, starting_time, winskip, winlen) -> Tuple[State, float]:
+        self.cur_state = new_state
+        return self.cur_state, new_reward
+
+    def _step(self, cur_time, winskip, winlen) -> Tuple[State, float]:
         """
-        returns
+        Helper function
+
+        Returns
         ~~~~~~~
             State:  State
             Reward: float
         """
         # Do Sampling
-        samples = self.sampler.sample(starting_time, winskip, winlen)
+        new_samples = self.sampler.sample(cur_time, winskip, winlen)
 
-        arraylike_features = self.feature_factory.make_feature(samples)
+        arraylike_features = self.feature_factory.make_feature(new_samples)
 
-        return_state = State(
-            time_point=starting_time,
+        new_state = State(
+            time_point=cur_time,
             window_skip=winskip,
             window_length=winlen,
             observations=arraylike_features,
-            # observable_features=self.observable_features,
         )
 
         # TODO: calculatae the reward
-        return_reward = 0
+        return_reward = self.reward_calculator.calculate(new_state)
 
-        return return_state, return_reward
+        return new_state, return_reward
 
     def reset(
         self,
@@ -102,7 +122,7 @@ class SamplingEnvironment:
         self._initialize_triad(starting_time, winskip, winlen)
 
         samples: Sequence = self.sampler.sample(
-            self.starting_time,
+            self.cur_time,
             self.cur_winskip,
             self.cur_winlen,
         )
@@ -118,6 +138,7 @@ class SamplingEnvironment:
             observations=arraylike_features,
             # observable_features=self.observable_features,
         )
+        self.cur_time += self.cur_winlen + self.cur_winskip
         return return_state
 
     def _initialize_triad(
@@ -140,6 +161,7 @@ class SamplingEnvironment:
                 min_time,
                 min_time + (max_time - min_time) * self.DAY_RIGHT_MARGIN,
             )
+            self.cur_time = self.starting_time
         else:
             assert within(
                 starting_time, min_time, max_time * self.DAY_RIGHT_MARGIN
