@@ -6,19 +6,23 @@ import numpy as np
 from networking.common_lingo import ATTACK_TO_STRING, STRING_TO_ATTACKS, Attack
 from networking.datastructures.flowsession import SampledFlowSession
 from networking.datastructures.packet_like import CSVPacket, PacketLike
-from sampleddetection.datastructures import CSVSample
+from sampleddetection.datastructures import CSVSample, SampleLike
 from sampleddetection.samplers import FeatureFactory, SampleFactory
 from sampleddetection.utils import setup_logger
 
 
-class NetworkSampleFactory(SampleFactory):
+class NetworkSampleFactory(SampleFactory[CSVSample]):
 
     def __init__(self):
         pass
 
     # Yeah this is kind of ugly
-    def make_sample(self, raw_sample: CSVSample) -> CSVPacket:
-
+    def make_sample(self, raw_sample: CSVSample) -> SampleLike:
+        """
+        Returns
+        ---------
+        - sample (CSVPacket): Will always return a CSVPacket
+        """
         # TODO: Maybe generalized
         assert isinstance(
             raw_sample, CSVSample
@@ -27,7 +31,7 @@ class NetworkSampleFactory(SampleFactory):
         return packet_like
 
 
-class NetworkFeatureFactory(FeatureFactory):
+class NetworkFeatureFactory(FeatureFactory[PacketLike]):
 
     def __init__(self, observable_features: Sequence[str], labels: Sequence[Attack]):
         self.logger = setup_logger(__class__.__name__)
@@ -47,12 +51,13 @@ class NetworkFeatureFactory(FeatureFactory):
         }
         # For t
 
-    def make_feature(
+    def make_feature_and_label(
         self, raw_sample_list: Sequence[PacketLike]
     ) -> Tuple[np.ndarray, np.ndarray]:
         # Clean the previous flow session
         flowsession = SampledFlowSession()
         flowsession.reset()
+
         for raw_sample in raw_sample_list:
             flowsession.on_packet_received(raw_sample)
 
@@ -60,22 +65,35 @@ class NetworkFeatureFactory(FeatureFactory):
 
         # Once all the flow is retrieved we create an array-like
         # We can use to do inference
-        data = flowsession.get_data()
+        data: Dict[Tuple, Dict] = flowsession.get_data()
 
         raw_features = []
-        # TODO: Clean
+        raw_labels = []
+        # TODO:: Probably check for empty returns
         for flow_key, feat_dict in data.items():
             # Fetch all features as specified by keys in self.observable_features
+            self.logger.info(
+                f"Ill show you what the feature dict looks like {feat_dict}"
+            )
             raw_features.append(self._get_flow_feats(feat_dict))
             # Also fetch the labels for each feature.
-            raw_labels.append(self.get_feature_strlist)
+            # raw_labels.append(self.get_feature_strlist)
+            raw_labels.append(self.strings_to_idx[feat_dict["label"]])
 
-        arraylike_features = np.array(raw_features)
+        # CHECK: if this is a valid way of giving it a defautl state
+        if len(raw_labels) == 0 and len(raw_features) == 0:
+            arraylike_features = np.array(
+                [[0 for _ in range(len(self.observable_features))]]
+            )
+            arraylike_labels = np.array([[0]], dtype=np.int16)
+        else:
+            arraylike_features = np.array(raw_features)
+            arraylike_labels = np.array(raw_labels, dtype=np.int16)
 
         self.logger.debug(
             f"Our features from a sample looks like:\n{arraylike_features}"
         )
-        return arraylike_features
+        return arraylike_features, arraylike_labels
 
     def get_feature_strlist(self):
         return self.observable_features

@@ -9,6 +9,7 @@ from networking.netfactories import NetworkFeatureFactory, NetworkSampleFactory
 from sampleddetection.datastructures import Action, State
 from sampleddetection.environments import SamplingEnvironment
 from sampleddetection.readers import AbstractTimeSeriesReader, CSVReader
+from sampleddetection.reward_signals import RewardCalculatorLike
 from sampleddetection.samplers import (
     FeatureFactory,
     NoReplacementSampler,
@@ -33,6 +34,7 @@ class GymSamplingEnv(gym.Env):
         action_idx_to_direction: Dict[int, int],  # TODO: maybe change to simply scaling
         sample_factory: SampleFactory,
         feature_factory: FeatureFactory,
+        reward_calculator: RewardCalculatorLike,
     ):
 
         # Get Dependency Injection elements.
@@ -40,11 +42,15 @@ class GymSamplingEnv(gym.Env):
         # TODO: we have to check this NoReplacementSampler is not too slow
         meta_sampler = NoReplacementSampler(data_reader, sample_factory)
 
-        self.env = SamplingEnvironment(meta_sampler, feature_factory=feature_factory)
+        self.env = SamplingEnvironment(
+            meta_sampler,
+            reward_calculator=reward_calculator,
+            feature_factory=feature_factory,
+        )
 
-        # Retrieve feature_factories observation dictionary
-        obs_el_str = feature_factory.make_feature
-        self.logger.debug(f"Reporting on the features that we are seeing: {obs_el_str}")
+        # TOREM: Retrieve feature_factories observation dictionary
+        # obs_el_str = feature_factory.make_feature_and_label()
+        # self.logger.debug(f"Reporting on the features that we are seeing: {obs_el_str}")
 
         self.action_idx_to_direction = action_idx_to_direction
 

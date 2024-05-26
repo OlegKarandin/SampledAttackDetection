@@ -1,6 +1,6 @@
 import random
 from logging import DEBUG
-from typing import Sequence, Tuple, Union
+from typing import Any, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -29,7 +29,7 @@ class SamplingEnvironment:
     def __init__(
         self,
         sampler: TSSampler,
-        feature_factory: FeatureFactory,
+        feature_factory: FeatureFactory[Any],
         reward_calculator: RewardCalculatorLike,
     ):
 
@@ -95,7 +95,9 @@ class SamplingEnvironment:
         # Do Sampling
         new_samples = self.sampler.sample(cur_time, winskip, winlen)
 
-        arraylike_features = self.feature_factory.make_feature(new_samples)
+        arraylike_features, labels = self.feature_factory.make_feature_and_label(
+            new_samples
+        )
 
         new_state = State(
             time_point=cur_time,
@@ -104,8 +106,9 @@ class SamplingEnvironment:
             observations=arraylike_features,
         )
 
-        # TODO: calculatae the reward
-        return_reward = self.reward_calculator.calculate(new_state)
+        return_reward = self.reward_calculator.calculate(
+            features=arraylike_features, ground_truths=labels
+        )
 
         return new_state, return_reward
 
@@ -129,7 +132,7 @@ class SamplingEnvironment:
 
         self.logger.info(f"We get a sample that looks like")
 
-        arraylike_features = self.feature_factory.make_feature(samples)
+        arraylike_features, label = self.feature_factory.make_feature_and_label(samples)
 
         return_state = State(
             time_point=self.starting_time,

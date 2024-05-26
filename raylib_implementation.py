@@ -22,8 +22,10 @@ from ray.tune.registry import register_env
 # NOTE: Importing this is critical to load all model automatically.
 from gymenvs.explicit_registration import explicit_registration
 from networking.common_lingo import Attack
+from networking.downstream_tasks.deepnets import Classifier
 from networking.netfactories import NetworkFeatureFactory, NetworkSampleFactory
 from sampleddetection.readers import CSVReader
+from sampleddetection.reward_signals import DNN_RewardCalculator
 from sampleddetection.utils import setup_logger
 
 
@@ -90,6 +92,15 @@ def env_wrapper(env) -> gym.Env:
     # Call the registration
     explicit_registration()
 
+    num_features = len(args.obs_elements)
+
+    # Create the downstream classidication learner
+    classifier = Classifier(
+        input_size=num_features, output_size=len(attacks_to_detect) + 1
+    )
+    # Create reward calculator to use
+    reward_calculator = DNN_RewardCalculator(classifier)
+
     print("Trying to make NETENVE")
     env = gym.make(
         "NetEnv",
@@ -99,6 +110,7 @@ def env_wrapper(env) -> gym.Env:
         action_idx_to_direction=args.action_dir,
         sample_factory=sample_factory,
         feature_factory=feature_factory,
+        reward_calculator=reward_calculator,
     )
     print("MANAGED TO MAKE NETENV")
     # Use wrapper to normalize the data:

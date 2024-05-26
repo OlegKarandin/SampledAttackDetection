@@ -34,20 +34,24 @@ class TSSampler(ABC):
         pass
 
 
-GenericSample = TypeVar("GenericSample")
+T = TypeVar("T")
 
 
-class SampleFactory(ABC):
+class SampleFactory(Generic[T]):
 
     @abstractmethod
-    def make_sample(self, raw_sample: Any) -> Sample:
+    def make_sample(self, raw_sample: T) -> SampleLike:
         pass
 
 
-class FeatureFactory(ABC):
+T = TypeVar("T")
+
+
+class FeatureFactory(ABC, Generic[T]):
+
     @abstractmethod
-    def make_feature(
-        self, raw_sample_list: Sequence[SampleLike]
+    def make_feature_and_label(
+        self, raw_sample_list: Sequence[T]
     ) -> Tuple[np.ndarray, np.ndarray]:  # Features and Labels
         pass  # TODO: Figure out what it is that we want to return here.
 
@@ -133,12 +137,12 @@ class DynamicWindowSampler(TSSampler):
                 cursample
             )
             cursample_time = self.timeseries_rdr.getTimestamp(idx_cursample)
-            self.logger.debug(
-                f"at idx {idx_cursample} we see a timestamp of {cursample_time}({epoch_to_clean(cursample_time)})"
-            )
-            self.logger.debug(
-                f"And the actual view of this sample looks like {cursample}"
-            )
+            # self.logger.debug(
+            #     f"at idx {idx_cursample} we see a timestamp of {cursample_time}({epoch_to_clean(cursample_time)})"
+            # )
+            # self.logger.debug(
+            #     f"And the actual view of this sample looks like {cursample}"
+            # )
             # flow_session.on_packet_received(curpack)
             samples.append(specific_sample_type)
             idx_cursample += 1
@@ -203,27 +207,33 @@ class NoReplacementSampler(DynamicWindowSampler):
 
     def sample(
         self,
+        starting_time: float,
         window_skip: float,
         window_length: float,
         initial_precise: bool = False,
         # ) -> SampledFlowSession:
     ) -> Sequence[Any]:
-
+        """
+        starting_time will be ignored
+        """
         foundSampled = True
-        starting_time = -1
+        local_starting_time = -1
         while foundSampled:
-            starting_time = np.random.uniform(low=self.init_time, high=self.fin_time)
-            end_time = starting_time + window_length
+            local_starting_time = np.random.uniform(
+                low=self.init_time, high=self.fin_time
+            )
+            end_time = local_starting_time + window_length
 
             foundSampled = False  # Start with hope
             for window in self.sampled_windows:
-                if (window.start <= starting_time and starting_time <= window.end) or (
-                    window.start <= end_time and end_time <= window.end
-                ):
+                if (
+                    window.start <= local_starting_time
+                    and local_starting_time <= window.end
+                ) or (window.start <= end_time and end_time <= window.end):
                     foundSampled = True
-                    self.logger.debug(
+                    self.logger.warn(
                         "Found a clash!"
-                        f"Trying window start {starting_time} with end_time {end_time}"
+                        f"Trying window start {local_starting_time} with end_time {end_time}"
                         f"Clashed with alredy sampled {window.start}-{window.end}"
                     )
                     break
@@ -232,12 +242,14 @@ class NoReplacementSampler(DynamicWindowSampler):
         assert not foundSampled, "Couldnt find a non sampled window"
 
         self.sampled_windows.append(
-            TimeWindow(start=starting_time, end=starting_time + window_length)
+            TimeWindow(
+                start=local_starting_time, end=local_starting_time + window_length
+            )
         )
 
         # Sample sequence as we normally would
         return super().sample(
-            starting_time, window_skip, window_length, initial_precise
+            local_starting_time, window_skip, window_length, initial_precise
         )
 
     def clear_memory(self):
