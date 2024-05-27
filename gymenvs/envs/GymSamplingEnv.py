@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Sequence
+from typing import Any, Dict, Tuple, Union
 
 import gymnasium as gym
 import numpy as np
@@ -115,11 +115,16 @@ class GymSamplingEnv(gym.Env):
         # We must convv
         return observation, reward, terminated, truncated, info
 
-    def _get_obs(self, state: State):
-        # State will return a list so we just have to return that as well
-        return state.get_data_list(self.relevant_datapoints)
+    # def _get_obs(self, state: State):
+    #     # State will return a list so we just have to return that as well
+    #     return state.get_data_list(self.relevant_datapoints)
 
-    def reset(self, seed=None, options=None):
+    def reset(
+        self,
+        *args,
+        seed: Union[int, None] = None,
+        options: Union[dict[str, Any], None] = None,
+    ):
         super().reset(seed=seed)  # type:ignore
         # Return observations as are expected
 

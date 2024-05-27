@@ -26,8 +26,8 @@ class State(StateLike):
         # observable_features: Sequence[Sample],
     ):
         self.time_point = time_point
-        self.cur_window_skip = window_skip
-        self.cur_window_length = window_length
+        self.window_skip = window_skip
+        self.window_length = window_length
         self.observations = observations
         # Not all features in flow_sesh are to be observed
         # self.observable_features = observable_features

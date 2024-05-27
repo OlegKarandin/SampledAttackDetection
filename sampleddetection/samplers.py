@@ -203,6 +203,7 @@ class NoReplacementSampler(DynamicWindowSampler):
         lowest_resolution: float = 1e-6,
     ):
         super().__init__(csvrdr, specific_sample_factory, lowest_resolution)
+        self.sampled_window_count = 0
         self.sampled_windows: List[TimeWindow] = []
 
     def sample(
@@ -225,6 +226,7 @@ class NoReplacementSampler(DynamicWindowSampler):
             end_time = local_starting_time + window_length
 
             foundSampled = False  # Start with hope
+            # OPTIM:  This will likely get slow very quickly
             for window in self.sampled_windows:
                 if (
                     window.start <= local_starting_time
@@ -232,15 +234,16 @@ class NoReplacementSampler(DynamicWindowSampler):
                 ) or (window.start <= end_time and end_time <= window.end):
                     foundSampled = True
                     self.logger.warn(
-                        "Found a clash!"
+                        f"Found a clash! (#{self.sampled_window_count})"
                         f"Trying window start {local_starting_time} with end_time {end_time}"
-                        f"Clashed with alredy sampled {window.start}-{window.end}"
+                        f"Clashed with alredy sampled ({window.start}->{window.end})"
                     )
                     break
 
         # This should NOT be triggered
         assert not foundSampled, "Couldnt find a non sampled window"
 
+        self.sampled_window_count += 1
         self.sampled_windows.append(
             TimeWindow(
                 start=local_starting_time, end=local_starting_time + window_length

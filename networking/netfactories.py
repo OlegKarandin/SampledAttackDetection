@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Dict, Sequence, Set, Tuple
+from typing import Dict, List, Sequence, Set, Tuple
 
 import numpy as np
 
@@ -72,9 +72,6 @@ class NetworkFeatureFactory(FeatureFactory[PacketLike]):
         # TODO:: Probably check for empty returns
         for flow_key, feat_dict in data.items():
             # Fetch all features as specified by keys in self.observable_features
-            self.logger.info(
-                f"Ill show you what the feature dict looks like {feat_dict}"
-            )
             raw_features.append(self._get_flow_feats(feat_dict))
             # Also fetch the labels for each feature.
             # raw_labels.append(self.get_feature_strlist)
@@ -98,7 +95,7 @@ class NetworkFeatureFactory(FeatureFactory[PacketLike]):
     def get_feature_strlist(self):
         return self.observable_features
 
-    def _get_flow_feats(self, feat_dict):
+    def _get_flow_feats(self, feat_dict) -> List:
         sample_features = []
         for feat_name, v in feat_dict.items():
             if feat_name in self.observable_features:

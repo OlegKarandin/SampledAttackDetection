@@ -18,11 +18,16 @@ FLAGS_TO_VAL = {
 }
 
 
-def setup_logger(logger_name: str, logging_level=logging.INFO):
+def setup_logger(logger_name: str, logging_level=logging.INFO, multiprocess=True):
     """
     Helper function for setting up logger both in stdout and file
     """
-    logger = logging.getLogger(logger_name)
+    # Measures necessary to take for us to be able to do multiprocess logging
+    localpid = os.getpid()
+    logger_name_local = f"pid({localpid})" + logger_name
+
+    # logger_name = "SUPADEBUG"
+    logger = logging.getLogger(logger_name_local)
     logger.setLevel(logging.DEBUG)
 
     # create console handler with a higher log level
@@ -36,7 +41,7 @@ def setup_logger(logger_name: str, logging_level=logging.INFO):
         "logs/",
     )
     os.makedirs(log_dir, exist_ok=True)
-    log_file_path = os.path.join(log_dir, f"{logger_name}.log")
+    log_file_path = os.path.join(log_dir, f"{logger_name_local}.log")
     fh = logging.FileHandler(log_file_path, mode="w")
     fh.setLevel(logging.DEBUG)
 
