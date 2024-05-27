@@ -92,6 +92,10 @@ def env_wrapper(env) -> gym.Env:
     # Call the registration
     explicit_registration()
 
+    # Specify the NetworkSampleFactor
+    sample_factory = NetworkSampleFactory()
+    feature_factory = NetworkFeatureFactory(args.obs_elements, attacks_to_detect)
+
     num_features = len(args.obs_elements)
 
     # Create the downstream classidication learner
@@ -127,7 +131,6 @@ if __name__ == "__main__":
     # gymenvs.register_env()
 
     # Define which labels one expects on the given dataset
-
     attacks_to_detect = [
         Attack.SLOWLORIS,
         Attack.SLOWHTTPTEST,
@@ -137,6 +140,9 @@ if __name__ == "__main__":
     ]
 
     csv_path = Path(args.csv_path_str)
+    # Create Data Reader
+    data_reader = CSVReader(csv_path)
+
     # Columns to Normalize
     columns_to_normalize = [
         "fwd_pkt_len_max",
@@ -160,13 +166,6 @@ if __name__ == "__main__":
         "pkt_len_max",
         "pkt_len_mean",
     ]
-
-    # Create Data Reader
-    data_reader = CSVReader(csv_path)
-
-    # Specify the NetworkSampleFactor
-    sample_factory = NetworkSampleFactory()
-    feature_factory = NetworkFeatureFactory(args.obs_elements, attacks_to_detect)
 
     # Make the environment
     print("Make the environment")
