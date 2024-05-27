@@ -42,50 +42,70 @@ class SamplingEnvironment:
         # Internal representation of State. Will be returned to viewer as in `class State` language
         self.starting_time = float("-inf")
         self.cur_state = State(
-            time_point=float("inf"),
-            window_skip=float("inf"),
-            window_length=float("inf"),
+            time_point=float("-inf"),
+            window_skip=float("-inf"),
+            window_length=float("-inf"),
             observations=np.ndarray([0]),
         )
-        # self.cur_winlen = float("-inf")
-        # self.cur_winskip = float("-inf")
+        # CHECK: that this reset call is even necessary
+        self.reset()
 
     def step(self, action: Action) -> Tuple[State, float]:
         """
+        Core functionality as well as data processing b4
+
         returns
         ~~~~~~~
-            State:  State
-            Reward: float
+            State: new state consequent to input `action`
+            Reward: reward for taking `action` conditioned on stored state
         """
-        status = [self.starting_time > 0, self.cur_winskip > 0, self.cur_winskip > 0]
-        assert all(status), "Make sure you initialize enviornment properly"
+        # Ensure correct initialization.
+        status = [
+            self.cur_state.time_point > 0,
+            self.cur_state.window_skip > 0,
+            self.cur_state.window_length > 0,
+        ]
+        assert all(status), (
+            "Make sure you initialize enviornment properly\n Specifically:"
+            f"\n\ttime_point={self.cur_state.time_point}"
+            f"\n\twindow_skip={self.cur_state.window_skip}"
+            f"\n\twindow_length={self.cur_state.window_length}"
+        )
 
         self.logger.debug(
             f"The action is of type {type(action)} and looks like {action}"
         )
 
-        # Get current positions
-        self.cur_winskip = clamp(
-            self.cur_winskip + action.winskip_delta,
+        ### Preprocess data for new state
+        time_point = self.cur_state.window_skip + self.cur_state.window_length
+        window_skip = clamp(
+            self.cur_state.window_skip + action.winskip_delta,
             self.WINDOW_SKIP_RANGE[0],
             self.WINDOW_SKIP_RANGE[1],
         )
-        self.cur_winlen = clamp(
-            self.cur_winlen + action.winlen_delta,
+        window_length = clamp(
+            self.cur_state.window_length + action.winlen_delta,
             self.WINDOW_LENGTH_RANGE[0],
-            self.WINDOW_SKIP_RANGE[1],
-        )
-        self.cur_time = self.cur_winskip + self.cur_winlen
-        new_state, new_reward = self._step(
-            self.starting_time, self.cur_winskip, self.cur_winlen
+            self.WINDOW_LENGTH_RANGE[1],
         )
 
+        self.logger.debug(f"Right as we are to activate _step()")
+
+        ### Actually perform step (retrieving observations)
+        new_state, new_reward = self._step(time_point, window_skip, window_length)
+
+        self.logger.debug(
+            f"We are working with sampled state of shape {new_state.observations.shape}"
+        )
+
+        ### Update new state
         self.cur_state = new_state
+
         return self.cur_state, new_reward
 
     def _step(self, cur_time, winskip, winlen) -> Tuple[State, float]:
         """
-        Helper function
+        Core functionality including sampling and feature formation
 
         Returns
         ~~~~~~~
@@ -99,6 +119,7 @@ class SamplingEnvironment:
             new_samples
         )
 
+        # Update the state to new observations
         new_state = State(
             time_point=cur_time,
             window_skip=winskip,
@@ -125,9 +146,9 @@ class SamplingEnvironment:
         self._initialize_triad(starting_time, winskip, winlen)
 
         samples: Sequence = self.sampler.sample(
-            self.cur_time,
-            self.cur_winskip,
-            self.cur_winlen,
+            self.cur_state.time_point,
+            self.cur_state.window_skip,
+            self.cur_state.window_length,
         )
 
         self.logger.info(f"We get a sample that looks like")
@@ -135,13 +156,12 @@ class SamplingEnvironment:
         arraylike_features, label = self.feature_factory.make_feature_and_label(samples)
 
         return_state = State(
-            time_point=self.starting_time,
-            window_skip=self.cur_winskip,
-            window_length=self.cur_winlen,
+            time_point=self.cur_state.time_point,
+            window_skip=self.cur_state.window_skip,
+            window_length=self.cur_state.window_length,
             observations=arraylike_features,
             # observable_features=self.observable_features,
         )
-        self.cur_time += self.cur_winlen + self.cur_winskip
         return return_state
 
     def _initialize_triad(
@@ -150,6 +170,21 @@ class SamplingEnvironment:
         winskip: Union[None, float] = None,
         winlen: Union[None, float] = None,
     ):
+        """
+        Will initialize the starting_time, winskin, winlen according to whether or not the provided paremeters are empty
+
+        Variables (3)
+        ---------
+        - starting_time: Time at which this environment is to start taking steps
+        - winskip: Once placed at `starting_time` how long will agent not observe for until the next observation
+        - winlen: Length of new obserbatio
+
+        Returns (0)
+        ---------
+        Returns nothing but sets a new `self.cur_state`
+        """
+
+        self.logger.debug("Initializing triad")
         min_time, max_time = (
             self.sampler.init_time,
             self.sampler.fin_time,
@@ -160,34 +195,35 @@ class SamplingEnvironment:
 
         # Starting Time
         if starting_time == None:
-            self.starting_time = random.uniform(
+            self.cur_state.time_point = random.uniform(
                 min_time,
                 min_time + (max_time - min_time) * self.DAY_RIGHT_MARGIN,
             )
-            self.cur_time = self.starting_time
         else:
             assert within(
                 starting_time, min_time, max_time * self.DAY_RIGHT_MARGIN
             ), f"Stating time {starting_time} out of range [{min_time},{max_time}]"
-            self.starting_time = starting_time
+            self.cur_state.time_point = starting_time
 
+        self.logger.debug(f"Initialized starting_time to {self.cur_state.time_point}")
         # Winskip
         if winskip == None:
-            self.cur_winskip = random.uniform(
+            self.cur_state.window_skip = random.uniform(
                 self.WINDOW_SKIP_RANGE[0], self.WINDOW_SKIP_RANGE[1]
             )
         else:
             assert within(
                 winskip, self.WINDOW_SKIP_RANGE[0], self.WINDOW_SKIP_RANGE[1]
             ), f"Winskip {winskip} out of range"
-            self.cur_winskip = winskip
+            self.cur_state.window_skip = winskip
 
+        # Window Length initialization
         if winlen == None:
-            self.cur_winlen = random.uniform(
+            self.cur_state.window_length = random.uniform(
                 self.WINDOW_LENGTH_RANGE[0], self.WINDOW_LENGTH_RANGE[1]
             )
         else:
             assert within(
                 winlen, self.WINDOW_LENGTH_RANGE[0], self.WINDOW_LENGTH_RANGE[1]
             ), f"Winlen {winlen} out of range"
-            self.cur_winlen = winlen
+            self.cur_state.window_length = winlen
