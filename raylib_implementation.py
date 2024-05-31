@@ -8,7 +8,7 @@ import ast
 import json
 from argparse import ArgumentParser
 from pathlib import Path
-from typing import Dict
+from typing import Any, Dict
 
 import gymnasium as gym
 import ray
@@ -24,7 +24,8 @@ from gymenvs.explicit_registration import explicit_registration
 from networking.common_lingo import Attack
 from networking.downstream_tasks.deepnets import Classifier
 from networking.netfactories import NetworkFeatureFactory, NetworkSampleFactory
-from sampleddetection.readers import CSVReader
+from sampleddetection.datastructures import CSVSample
+from sampleddetection.readers import AbstractTimeSeriesReader, CSVReader
 from sampleddetection.reward_signals import DNN_RewardCalculator
 from sampleddetection.utils import setup_logger
 
@@ -36,11 +37,61 @@ def str_to_dict(s):
         raise argparse.ArgumentTypeError(f"Invalid dictionary format: {s}")
 
 
+@ray.remote
+class RemoteCSVReader(CSVReader):
+    def __init__(self, csv_path) -> None:
+        super().__init__(csv_path)
+
+    def __getitem__(self, idx) -> CSVSample:
+        return super().__getitem__(idx)
+
+    def inittime(self) -> float:
+        return super().init_time
+
+    def fintime(self) -> float:
+        return super().fin_time
+
+
+# Maybe we can create our own class that depends on Rays Remote
+class RemoteReader(AbstractTimeSeriesReader):
+    def __init__(self, path: Path):
+        # Initialize a different csv reader
+        # self.remote_reader_handle = RemoteCSVReader.remote(path)
+        # remote_class = ray.remote(CSVReader)
+        self.remote_reader_handle = RemoteCSVReader.remote(path)
+
+    def __getitem__(self, idx) -> Any:
+        """
+        Will get ray promises and wait for them
+        """
+        future = self.remote_reader_handle.__getitem__.remote(idx)
+        return ray.get(future)
+
+    def __len__(self) -> int:
+        future = self.remote_reader_handle.__len__.remote()
+        return ray.get(future)
+
+    def getTimestamp(self, idx) -> float:
+        future = self.remote_reader_handle.getTimestamp.remote(idx)
+        return ray.get(future)
+
+    @property
+    def init_time(self) -> float:
+        future = self.remote_reader_handle.inittime.remote()
+        return ray.get(future)
+
+    @property
+    def fin_time(self) -> float:
+        future = self.remote_reader_handle.fintime.remote()
+        return ray.get(future)
+
+
 def argsies():
     ap = ArgumentParser()
     ap.add_argument(
         "--csv_path_str",
-        default="./data/mini_wednesday.csv",
+        # default="./data/mini_wednesday.csv",
+        default="./data/Wednesday.csv",
         type=str,
         help="Path to where the data lies",
     )
@@ -98,6 +149,11 @@ def env_wrapper(env) -> gym.Env:
 
     num_features = len(args.obs_elements)
 
+    # Create Data Reader
+    # csv_path = Path(args.csv_path_str)
+    # assert csv_path.exists(), "csv path provided does not exist"
+    # data_reader = CSVReader(csv_path)
+
     # Create the downstream classidication learner
     classifier = Classifier(
         input_size=num_features, output_size=len(attacks_to_detect) + 1
@@ -139,10 +195,6 @@ if __name__ == "__main__":
         # Attack.HEARTBLEED. # Takes too long find in dataset.
     ]
 
-    csv_path = Path(args.csv_path_str)
-    # Create Data Reader
-    data_reader = CSVReader(csv_path)
-
     # Columns to Normalize
     columns_to_normalize = [
         "fwd_pkt_len_max",
@@ -166,6 +218,9 @@ if __name__ == "__main__":
         "pkt_len_max",
         "pkt_len_mean",
     ]
+    # Make shared CSVReader
+    csv_path = Path(args.csv_path_str)
+    data_reader = RemoteReader(csv_path)
 
     # Make the environment
     print("Make the environment")
