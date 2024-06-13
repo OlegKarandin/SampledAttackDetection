@@ -113,12 +113,15 @@ class SamplingEnvironment:
             Reward: float
         """
         # Do Sampling
+        self.logger.debug("Doing sampling")
         new_samples = self.sampler.sample(cur_time, winskip, winlen)
 
+        self.logger.debug("Doing features")
         arraylike_features, labels = self.feature_factory.make_feature_and_label(
             new_samples
         )
 
+        self.logger.debug("In preparation to go into State")
         # Update the state to new observations
         new_state = State(
             time_point=cur_time,
@@ -126,6 +129,9 @@ class SamplingEnvironment:
             window_length=winlen,
             observations=arraylike_features,
         )
+
+        self.logger.debug(f"We are retrieving observations from our state")
+        self.logger.debug(f"They look like: {new_state.observations}")
 
         return_reward = self.reward_calculator.calculate(
             features=arraylike_features, ground_truths=labels

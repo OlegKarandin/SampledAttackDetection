@@ -19,7 +19,12 @@ joblib = "^1.4.0"
 scikit-learn = "^1.4.2"
 xgboost = "^2.0.3"
 gymnasium = {version = "^0.29.1", extras = ["box2d","mujoco"]}
+grpcio = "1.64.0"
 
+
+[tool.poetry.group.extras.dependencies]
+gputil = "^1.4.0"
+pytest = "^8.2.1"
 
 [build-system]
 requires = ["poetry-core"]

@@ -11,6 +11,7 @@ from sampleddetection.samplers import FeatureFactory, SampleFactory
 from sampleddetection.utils import setup_logger
 
 
+# TOREM: this just add extra complexity an AbstractTimeSeriesReader can take
 class NetworkSampleFactory(SampleFactory[CSVSample]):
 
     def __init__(self):

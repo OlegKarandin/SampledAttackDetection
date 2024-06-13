@@ -8,7 +8,7 @@ import ast
 import json
 from argparse import ArgumentParser
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Union
 
 import gymnasium as gym
 import ray
@@ -19,11 +19,14 @@ from ray.rllib.algorithms.ppo import PPOConfig
 from ray.tune.logger import pretty_print
 from ray.tune.registry import register_env
 
+
 # NOTE: Importing this is critical to load all model automatically.
 from gymenvs.explicit_registration import explicit_registration
 from networking.common_lingo import Attack
+from networking.datastructures.packet_like import CSVPacket
 from networking.downstream_tasks.deepnets import Classifier
 from networking.netfactories import NetworkFeatureFactory, NetworkSampleFactory
+from networking.readers import NetCSVReader
 from sampleddetection.datastructures import CSVSample
 from sampleddetection.readers import AbstractTimeSeriesReader, CSVReader
 from sampleddetection.reward_signals import DNN_RewardCalculator
@@ -38,11 +41,11 @@ def str_to_dict(s):
 
 
 @ray.remote
-class RemoteCSVReader(CSVReader):
+class RemoteCSVReader(NetCSVReader):
     def __init__(self, csv_path) -> None:
         super().__init__(csv_path)
 
-    def __getitem__(self, idx) -> CSVSample:
+    def getitem(self, idx) -> Union[CSVPacket, List[CSVPacket]]:
         return super().__getitem__(idx)
 
     def inittime(self) -> float:
@@ -58,13 +61,16 @@ class RemoteReader(AbstractTimeSeriesReader):
         # Initialize a different csv reader
         # self.remote_reader_handle = RemoteCSVReader.remote(path)
         # remote_class = ray.remote(CSVReader)
+        self.logger = setup_logger(__class__.__name__)
         self.remote_reader_handle = RemoteCSVReader.remote(path)
 
     def __getitem__(self, idx) -> Any:
         """
         Will get ray promises and wait for them
         """
-        future = self.remote_reader_handle.__getitem__.remote(idx)
+        future = self.remote_reader_handle.getitem.remote(idx)
+        list_of_values = ray.get(future)
+        self.logger.info(f"List of values we get is {list_of_values}")
         return ray.get(future)
 
     def __len__(self) -> int:

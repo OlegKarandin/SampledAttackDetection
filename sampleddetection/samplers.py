@@ -68,7 +68,7 @@ class DynamicWindowSampler(TSSampler):
     def __init__(
         self,
         timeseries_rdr: AbstractTimeSeriesReader,
-        specific_samplefactory: SampleFactory,
+        specific_samplefactory: SampleFactory,  # TOREM: the reader can take on this complexity this is redundant.
         lowest_resolution: float = 1e-6,
     ):
         self.lowest_resolution = lowest_resolution
@@ -103,7 +103,7 @@ class DynamicWindowSampler(TSSampler):
         ~~~~~~~~~~
             e  - initial_precise: Whether we shoudl start precisely at the provided time or at the closest packet to it
         """
-        idx_firstpack = binary_search(self.timeseries_rdr, starting_time)
+        idx_firstsamp = binary_search(self.timeseries_rdr, starting_time)
 
         if initial_precise:
             cur_time = (
@@ -111,41 +111,47 @@ class DynamicWindowSampler(TSSampler):
             )  # Assumes that we will start `window_skip` after inference
         else:
             cur_time = (
-                self.timeseries_rdr.getTimestamp(idx_firstpack) - 1e-7
+                self.timeseries_rdr.getTimestamp(idx_firstsamp) - 1e-7
             )  # Assuming micro sec packet capture
 
         next_stop = cur_time + window_length
+        idx_lastsamp = binary_search(self.timeseries_rdr, next_stop)
 
-        # flow_session = SampledFlowSession(
-        #     sampwindow_length=window_length, sample_initpos=starting_time
-        # )
-        samples: Sequence[SampleLike] = []
+        # This call might be IPC so be careful not to abuse it
+        samples = self.timeseries_rdr[idx_firstsamp:idx_lastsamp]
 
-        cursample = self.timeseries_rdr[idx_firstpack]
-        self.logger.debug(f"starting at time {cur_time}")
+        return samples
+        # # TODO: Create window skip loop(URGENT)
 
-        idx_cursample = idx_firstpack
-        while (
-            idx_cursample < self.max_idx
-            and self.timeseries_rdr.getTimestamp(idx_cursample) < next_stop
-        ):
-            # These are a few weird lines.
-            # It takes the very general `cursample` SampleLike and transforms it into amore specific on_packet_received
-            # Here until I can come up with a better solution.
-            cursample: SampleLike = self.timeseries_rdr[idx_cursample]
-            specific_sample_type: SampleLike = self.specific_samplefactory.make_sample(
-                cursample
-            )
-            cursample_time = self.timeseries_rdr.getTimestamp(idx_cursample)
-            # self.logger.debug(
-            #     f"at idx {idx_cursample} we see a timestamp of {cursample_time}({epoch_to_clean(cursample_time)})"
-            # )
-            # self.logger.debug(
-            #     f"And the actual view of this sample looks like {cursample}"
-            # )
-            # flow_session.on_packet_received(curpack)
-            samples.append(specific_sample_type)
-            idx_cursample += 1
+        # cursample = self.timeseries_rdr[idx_firstsamp]
+        # self.logger.debug(f"starting at time {cur_time} and ending at {next_stop}")
+        # total_time = next_stop - cur_time
+        # self.logger.debug(f"Taking a total time of {total_time}")
+        #
+        # idx_cursample = idx_firstsamp
+        # while (
+        #     idx_cursample < self.max_idx
+        #     and self.timeseries_rdr.getTimestamp(idx_cursample) < next_stop
+        # ):
+        #     self.logger.debug(f"Looking around at {cursample.time}")
+        #     # These are a few weird lines.
+        #     # It takes the very general `cursample` SampleLike and transforms it into a more specific on_packet_received
+        #     # Here until I can come up with a better solution.
+        #     cursample: SampleLike = self.timeseries_rdr[idx_cursample]
+        #     specific_sample_type: SampleLike = self.specific_samplefactory.make_sample(
+        #         cursample
+        #     )
+        #     cursample_time = self.timeseries_rdr.getTimestamp(idx_cursample)
+        #
+        #     # self.logger.debug(
+        #     #     f"at idx {idx_cursample} we see a timestamp of {cursample_time}({epoch_to_clean(cursample_time)})"
+        #     # )
+        #     # self.logger.debug(
+        #     #     f"And the actual view of this sample looks like {cursample}"
+        #     # )
+        #     # flow_session.on_packet_received(curpack)
+        #     samples.append(specific_sample_type)
+        #     idx_cursample += 1
 
         # TODO: Create a check to ensure we are not going over the margin here
         cur_time = next_stop + window_skip
@@ -396,8 +402,9 @@ class NoReplacementSampler(DynamicWindowSampler):
 
 def binary_search(cpt_rdr: AbstractTimeSeriesReader, target_time: float) -> int:
     """
-    Given a capture and a target time, will return the index of the first packet
+    Given a reader and a target time, will return the index of the first sample
     that is after the target time
+    (i.e. excludes boundary)
     """
     # Initialize variables
     # self.logger.debug(f"The initial high is  {high}")

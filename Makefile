@@ -6,3 +6,6 @@ register_environments:
 
 raylib_run:
 	poetry run python ./raylib_implementation.py
+
+clean:
+	rm ./logs/*

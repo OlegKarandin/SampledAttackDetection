@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
+from ast import Slice
 from pathlib import Path
 from time import time
-from typing import Any
+from typing import Any, List, Union
 
 import pandas as pd
 
@@ -79,9 +80,17 @@ class CSVReader(AbstractTimeSeriesReader):
     def __len__(self):
         return len(self.csv_df)
 
-    def __getitem__(self, idx) -> CSVSample:
+    def __getitem__(self, idx) -> Union[CSVSample, List[CSVSample]]:
         # return self.csv_df.iloc[idx]
-        return CSVSample(self.csv_df.iloc[idx])
+        # check if it is a slice
+        if isinstance(idx, int):
+            return CSVSample(self.csv_df.iloc[idx])
+        elif isinstance(idx, slice):
+            return [CSVSample(s) for s in self.csv_df.iloc[idx]]
+        else:
+            raise TypeError(
+                f"Provided CSVReader with neither int nor slice. Unrecognizable type {type(idx)}"
+            )
 
     def getTimestamp(self, idx):
         return self.csv_df.iloc[idx]["timestamp"]

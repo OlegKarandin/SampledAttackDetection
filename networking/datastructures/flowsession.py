@@ -51,7 +51,8 @@ class SampledFlowSession:
         """
         Return:
         -------
-            finished_state: whether or not we have met the end of the sampling window.
+            - finished_state: whether or not we have met the end of the sampling window.
+
         Assumption:
         -----------
         Outer function will make sure we have not met the end of the sampling window.

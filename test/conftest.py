@@ -1,5 +1,11 @@
 def pytest_addoption(parser):
     parser.addoption(
+        "--mini_csv_path",
+        action="store",
+        default="./data/mini_Wednesday.csv",
+        help="Location to Csvfile",
+    )
+    parser.addoption(
         "--csvfile",
         action="store",
         default="./bigdata/specific_instances/40.83.143.209_192.168.10.14_443_49461.csv",
