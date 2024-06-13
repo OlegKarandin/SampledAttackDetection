@@ -4,6 +4,8 @@ from typing import Any, Dict, Tuple, Union
 import gymnasium as gym
 import numpy as np
 from gymnasium.core import ActType
+from ray import ObjectRef
+import ray
 
 from networking.netfactories import NetworkFeatureFactory, NetworkSampleFactory
 from sampleddetection.datastructures import Action, State
@@ -30,7 +32,8 @@ class GymSamplingEnv(gym.Env):
         self,
         num_obs_elements: int,
         num_possible_actions: int,
-        data_reader: AbstractTimeSeriesReader,
+        # data_reader: AbstractTimeSeriesReader,
+        data_reader_ref: ObjectRef,
         action_idx_to_direction: Dict[int, int],  # TODO: maybe change to simply scaling
         sample_factory: SampleFactory,
         feature_factory: FeatureFactory,
@@ -40,7 +43,8 @@ class GymSamplingEnv(gym.Env):
         # Get Dependency Injection elements.
         self.logger = setup_logger(__class__.__name__)
         # TODO: we have to check this NoReplacementSampler is not too slow
-        meta_sampler = NoReplacementSampler(data_reader, sample_factory)
+        self.data_reader = ray.get(data_reader_ref)
+        meta_sampler = NoReplacementSampler(self.data_reader, sample_factory)
 
         self.env = SamplingEnvironment(
             meta_sampler,

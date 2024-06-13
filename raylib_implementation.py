@@ -19,7 +19,6 @@ from ray.rllib.algorithms.ppo import PPOConfig
 from ray.tune.logger import pretty_print
 from ray.tune.registry import register_env
 
-
 # NOTE: Importing this is critical to load all model automatically.
 from gymenvs.explicit_registration import explicit_registration
 from networking.common_lingo import Attack
@@ -38,58 +37,6 @@ def str_to_dict(s):
         return ast.literal_eval(s)
     except ValueError:
         raise argparse.ArgumentTypeError(f"Invalid dictionary format: {s}")
-
-
-@ray.remote
-class RemoteCSVReader(NetCSVReader):
-    def __init__(self, csv_path) -> None:
-        super().__init__(csv_path)
-
-    def getitem(self, idx) -> Union[CSVPacket, List[CSVPacket]]:
-        return super().__getitem__(idx)
-
-    def inittime(self) -> float:
-        return super().init_time
-
-    def fintime(self) -> float:
-        return super().fin_time
-
-
-# Maybe we can create our own class that depends on Rays Remote
-class RemoteReader(AbstractTimeSeriesReader):
-    def __init__(self, path: Path):
-        # Initialize a different csv reader
-        # self.remote_reader_handle = RemoteCSVReader.remote(path)
-        # remote_class = ray.remote(CSVReader)
-        self.logger = setup_logger(__class__.__name__)
-        self.remote_reader_handle = RemoteCSVReader.remote(path)
-
-    def __getitem__(self, idx) -> Any:
-        """
-        Will get ray promises and wait for them
-        """
-        future = self.remote_reader_handle.getitem.remote(idx)
-        list_of_values = ray.get(future)
-        self.logger.info(f"List of values we get is {list_of_values}")
-        return ray.get(future)
-
-    def __len__(self) -> int:
-        future = self.remote_reader_handle.__len__.remote()
-        return ray.get(future)
-
-    def getTimestamp(self, idx) -> float:
-        future = self.remote_reader_handle.getTimestamp.remote(idx)
-        return ray.get(future)
-
-    @property
-    def init_time(self) -> float:
-        future = self.remote_reader_handle.inittime.remote()
-        return ray.get(future)
-
-    @property
-    def fin_time(self) -> float:
-        future = self.remote_reader_handle.fintime.remote()
-        return ray.get(future)
 
 
 def argsies():
@@ -172,7 +119,7 @@ def env_wrapper(env) -> gym.Env:
         "NetEnv",
         num_obs_elements=len(args.obs_elements),
         num_possible_actions=args.num_possible_actions,
-        data_reader=data_reader,
+        data_reader_ref=csv_reader_ref,
         action_idx_to_direction=args.action_dir,
         sample_factory=sample_factory,
         feature_factory=feature_factory,
@@ -226,7 +173,8 @@ if __name__ == "__main__":
     ]
     # Make shared CSVReader
     csv_path = Path(args.csv_path_str)
-    data_reader = RemoteReader(csv_path)
+    csv_reader = NetCSVReader(csv_path)
+    csv_reader_ref = ray.put(csv_reader)
 
     # Make the environment
     print("Make the environment")
