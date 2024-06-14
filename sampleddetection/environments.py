@@ -77,44 +77,24 @@ class SamplingEnvironment:
         )
 
         ### Preprocess data for new state
-        time_point = self.cur_state.window_skip + self.cur_state.window_length
         window_skip = clamp(
             self.cur_state.window_skip + action.winskip_delta,
             self.WINDOW_SKIP_RANGE[0],
             self.WINDOW_SKIP_RANGE[1],
         )
+        cur_time = self.cur_state.time_point + self.cur_state.window_skip
+        self.cur_state.time_point = cur_time
+        # Onbserve after the rest
         window_length = clamp(
             self.cur_state.window_length + action.winlen_delta,
             self.WINDOW_LENGTH_RANGE[0],
             self.WINDOW_LENGTH_RANGE[1],
         )
 
+        ### ✨ Time to observe (take a step)
         self.logger.debug(f"Right as we are to activate _step()")
-
-        ### Actually perform step (retrieving observations)
-        new_state, new_reward = self._step(time_point, window_skip, window_length)
-
-        self.logger.debug(
-            f"We are working with sampled state of shape {new_state.observations.shape}"
-        )
-
-        ### Update new state
-        self.cur_state = new_state
-
-        return self.cur_state, new_reward
-
-    def _step(self, cur_time, winskip, winlen) -> Tuple[State, float]:
-        """
-        Core functionality including sampling and feature formation
-
-        Returns
-        ~~~~~~~
-            State:  State
-            Reward: float
-        """
-        # Do Sampling
-        self.logger.debug("Doing sampling")
-        new_samples = self.sampler.sample(cur_time, winskip, winlen)
+        # TODO: Ensure we can remove window_skipo later, its not being used already
+        new_samples = self.sampler.sample(cur_time, -1, window_length)
 
         self.logger.debug("Doing features")
         arraylike_features, labels = self.feature_factory.make_feature_and_label(
@@ -124,20 +104,31 @@ class SamplingEnvironment:
         self.logger.debug("In preparation to go into State")
         # Update the state to new observations
         new_state = State(
-            time_point=cur_time,
-            window_skip=winskip,
-            window_length=winlen,
+            # Time point at which next step will start
+            time_point=cur_time + window_length,
+            window_skip=window_skip,
+            window_length=window_length,
             observations=arraylike_features,
         )
 
-        self.logger.debug(f"We are retrieving observations from our state")
         self.logger.debug(f"They look like: {new_state.observations}")
 
         return_reward = self.reward_calculator.calculate(
             features=arraylike_features, ground_truths=labels
         )
 
-        return new_state, return_reward
+        self.logger.debug(
+            f"We are working with sampled state of shape {new_state.observations.shape}"
+        )
+
+        ### Update new state
+        self.cur_state = new_state
+
+        return self.cur_state, return_reward
+
+    # def _step(self, cur_time, winskip, winlen) -> Tuple[State, float]:
+    #
+    #     return new_state, return_reward
 
     def reset(
         self,

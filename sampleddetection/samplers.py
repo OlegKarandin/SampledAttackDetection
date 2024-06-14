@@ -5,11 +5,11 @@ from typing import Any, Generic, List, Sequence, Tuple, TypeVar
 
 import numpy as np
 
-from sampleddetection.datastructures import Sample, SampleLike
+from sampleddetection.datastructures import SampleLike
 from sampleddetection.readers import AbstractTimeSeriesReader
 
 from .common_lingo import TimeWindow
-from .utils import epoch_to_clean, setup_logger
+from .utils import setup_logger
 
 
 class TSSampler(ABC):
@@ -100,27 +100,18 @@ class DynamicWindowSampler(TSSampler):
 
         Parameters
         ~~~~~~~~~~
-            e  - initial_precise: Whether we shoudl start precisely at the provided time or at the closest packet to it
+            e  - initial_precise: Whether we shoudl staat precisely at the provided time or at the closest packet to it
         """
+        stopping_time = starting_time + window_length
+
         idx_firstsamp = binary_search(self.timeseries_rdr, starting_time)
-
-        if initial_precise:
-            cur_time = (
-                starting_time + window_skip
-            )  # Assumes that we will start `window_skip` after inference
-        else:
-            cur_time = (
-                self.timeseries_rdr.getTimestamp(idx_firstsamp) - 1e-7
-            )  # Assuming micro sec packet capture
-
-        next_stop = cur_time + window_length
-        idx_lastsamp = binary_search(self.timeseries_rdr, next_stop)
+        idx_lastsamp = binary_search(self.timeseries_rdr, stopping_time)
 
         # This call might be IPC so be careful not to abuse it
         samples = self.timeseries_rdr[idx_firstsamp:idx_lastsamp]
+        # TODO: Create window skip loop(URGENT)
 
         return samples
-        # # TODO: Create window skip loop(URGENT)
 
         # cursample = self.timeseries_rdr[idx_firstsamp]
         # self.logger.debug(f"starting at time {cur_time} and ending at {next_stop}")
@@ -153,8 +144,8 @@ class DynamicWindowSampler(TSSampler):
         #     idx_cursample += 1
 
         # TODO: Create a check to ensure we are not going over the margin here
-        cur_time = next_stop + window_skip
-        next_stop = cur_time + window_length
+        cur_time = stopping_time + window_skip
+        stopping_time = cur_time + window_length
 
         return samples
         # return flow_session
