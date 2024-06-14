@@ -96,8 +96,7 @@ class DynamicWindowSampler(TSSampler):
         # ) -> SampledFlowSession:
         # ) -> pd.DataFrame:
         """
-        Will return a `SampledFlowSession` for a specific time window.
-        `SampledFlowSession.get_data()` will get you a dictionary of statistics for all flows in that window.
+        Will just return a list of samples
 
         Parameters
         ~~~~~~~~~~
@@ -159,46 +158,6 @@ class DynamicWindowSampler(TSSampler):
 
         return samples
         # return flow_session
-
-    # TOREM: Already been deprecated for a while.
-    # @deprecated(
-    #     reason="We are not using window_length as a class property anymore",
-    #     date="Mar 15, 2024",
-    # )
-    # def sample_n_flows(
-    #     self, initial_time: float, min_num_flows: int
-    # ) -> SampledFlowSession:
-    #     # OPTIM: so much to do here. We might need to depend on a c++ library to do this.
-    #     """
-    #     Will create `samples` samples from which to form current statistics
-    #     """
-    #
-    #     idx_curpack = binary_search(self.timeseries_rdr, initial_time)
-    #     cur_num_flows = 0
-    #
-    #     cur_time = initial_time
-    #     cur_left_limit = initial_time
-    #     cur_right_limit = initial_time + self.window_length
-    #
-    #     # Create New Flow Session
-    #     flow_session = SampledFlowSession()
-    #
-    #     while cur_num_flows < min_num_flows:
-    #         # Keep going through packets
-    #         cur_packet = self.timeseries_rdr[idx_curpack]
-    #         cur_time = cur_packet.time
-    #
-    #         flow_session.on_packet_received(cur_packet, cur_left_limit, cur_right_limit)
-    #
-    #         cur_num_flows = flow_session.num_flows()
-    #         idx_curpack += 1
-    #         # TODO: check if we hit the limits of the pcap file. If so we may want to start again
-    #
-    #         if cur_time > cur_right_limit:
-    #             cur_left_limit = cur_right_limit + self.window_skip
-    #             cur_right_limit = cur_left_limit + self.window_length
-    #
-    #     return flow_session
 
 
 class NoReplacementSampler(DynamicWindowSampler):

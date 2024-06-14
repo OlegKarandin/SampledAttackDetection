@@ -20,7 +20,7 @@ MAX_MEM = 15e9  # GB This is as mcuh as we want in ram at once
 
 class NetCSVReader(AbstractTimeSeriesReader):
     """
-    Interface for CSV but with Packets as Samles
+    Interface for CSV but with Packets as Samples
     Expectations:
         - csv must have timestamp column
     """
@@ -28,8 +28,8 @@ class NetCSVReader(AbstractTimeSeriesReader):
     def __init__(self, csv_path: Path):
         """
         Parameters
-        ~~~~~~~~~~
-            mdata_path : Path to store meta data after having a pass over pcap file and forming an index
+        ----------
+            - csv_path (pathlib.Path): Path to store meta data after having a pass over pcap file and forming an index
         """
         # Parameters
         self.logger = setup_logger(__class__.__name__)
@@ -53,11 +53,7 @@ class NetCSVReader(AbstractTimeSeriesReader):
     def __getitem__(self, idx_or_slice) -> Union[CSVPacket, List[CSVPacket]]:
         # return self.csv_df.iloc[idx]
         # check if it is a slice
-        self.logger.debug(
-            f"We are getting argument : {idx_or_slice} of type {type(idx_or_slice)}"
-        )
         if isinstance(idx_or_slice, int):
-            self.logger.debug(f"We are feeding {self.csv_df.iloc[idx_or_slice]}")
             return CSVPacket(self.csv_df.iloc[idx_or_slice])
         elif isinstance(idx_or_slice, slice):
             # This is operating across th
