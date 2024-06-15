@@ -113,43 +113,6 @@ class DynamicWindowSampler(TSSampler):
 
         return samples
 
-        # cursample = self.timeseries_rdr[idx_firstsamp]
-        # self.logger.debug(f"starting at time {cur_time} and ending at {next_stop}")
-        # total_time = next_stop - cur_time
-        # self.logger.debug(f"Taking a total time of {total_time}")
-        #
-        # idx_cursample = idx_firstsamp
-        # while (
-        #     idx_cursample < self.max_idx
-        #     and self.timeseries_rdr.getTimestamp(idx_cursample) < next_stop
-        # ):
-        #     self.logger.debug(f"Looking around at {cursample.time}")
-        #     # These are a few weird lines.
-        #     # It takes the very general `cursample` SampleLike and transforms it into a more specific on_packet_received
-        #     # Here until I can come up with a better solution.
-        #     cursample: SampleLike = self.timeseries_rdr[idx_cursample]
-        #     specific_sample_type: SampleLike = self.specific_samplefactory.make_sample(
-        #         cursample
-        #     )
-        #     cursample_time = self.timeseries_rdr.getTimestamp(idx_cursample)
-        #
-        #     # self.logger.debug(
-        #     #     f"at idx {idx_cursample} we see a timestamp of {cursample_time}({epoch_to_clean(cursample_time)})"
-        #     # )
-        #     # self.logger.debug(
-        #     #     f"And the actual view of this sample looks like {cursample}"
-        #     # )
-        #     # flow_session.on_packet_received(curpack)
-        #     samples.append(specific_sample_type)
-        #     idx_cursample += 1
-
-        # TODO: Create a check to ensure we are not going over the margin here
-        cur_time = stopping_time + window_skip
-        stopping_time = cur_time + window_length
-
-        return samples
-        # return flow_session
-
 
 class NoReplacementSampler(DynamicWindowSampler):
     def __init__(
