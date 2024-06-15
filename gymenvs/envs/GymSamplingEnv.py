@@ -3,9 +3,9 @@ from typing import Any, Dict, Tuple, Union
 
 import gymnasium as gym
 import numpy as np
+import ray
 from gymnasium.core import ActType
 from ray import ObjectRef
-import ray
 
 from networking.netfactories import NetworkFeatureFactory, NetworkSampleFactory
 from sampleddetection.datastructures import Action, State
@@ -99,7 +99,9 @@ class GymSamplingEnv(gym.Env):
 
         # CHECK: since action_idx is of type ActType
         # maybe we have to check its provenance
-        print(f"OK, AGAIN, Action type ({type(action)}) looks like: {action}")
+        self.logger.debug(
+            f"Gym Envirnonment is receiving action type ({type(action)}) that looks like: {action}"
+        )
         # actual_action = int(self.action_idx_to_direction[action])
 
         # Create Action in same language

@@ -92,7 +92,9 @@ class SamplingEnvironment:
         )
 
         ### ✨ Time to observe (take a step)
-        self.logger.debug(f"Right as we are to activate _step()")
+        self.logger.debug(
+            f"Sampling about to take place at current time {cur_time} with window lenght {window_length}"
+        )
         # TODO: Ensure we can remove window_skipo later, its not being used already
         new_samples = self.sampler.sample(cur_time, -1, window_length)
 
@@ -123,6 +125,9 @@ class SamplingEnvironment:
 
         ### Update new state
         self.cur_state = new_state
+        self.logger.debug(
+            f"Final obtained state is of size {len(new_state.observations)} and looks like \n{new_state.observations}"
+        )
 
         return self.cur_state, return_reward
 

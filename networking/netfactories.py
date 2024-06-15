@@ -55,17 +55,16 @@ class NetworkFeatureFactory(FeatureFactory[PacketLike]):
     def make_feature_and_label(
         self, raw_sample_list: Sequence[PacketLike]
     ) -> Tuple[np.ndarray, np.ndarray]:
-        # Clean the previous flow session
+        self.logger.debug(
+            f"Constructing features and labels for {len(raw_sample_list)} packets"
+        )
         flowsession = SampledFlowSession()
         flowsession.reset()
 
         for raw_sample in raw_sample_list:
             flowsession.on_packet_received(raw_sample)
 
-        # Use FlowSession to get the data and get the feature
-
         # Once all the flow is retrieved we create an array-like
-        # We can use to do inference
         data: Dict[Tuple, Dict] = flowsession.get_data()
 
         raw_features = []
