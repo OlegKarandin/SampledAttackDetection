@@ -74,13 +74,14 @@ class NetworkFeatureFactory(FeatureFactory[PacketLike]):
         self.logger.debug(f"We have obtaine {len(data)} flows to get info from.")
         for flow_key, feat_dict in data.items():
             # Avoid packets we dont care for
-            label_enum = STRING_TO_ATTACKS[feat_dict["label"]]
+            label_str = feat_dict["label"]
+            label_enum = STRING_TO_ATTACKS[label_str]
             if label_enum not in self.expected_labels:
                 self.logger.debug(f"Skipping on label_id {label_enum}")
                 continue
             # Fetch all features and labels as specified by keys in self.observable_features
             raw_features.append(self._get_flow_feats(feat_dict))
-            raw_labels.append(label_enum)
+            raw_labels.append(self.strings_to_idx[label_str])
 
         # CHECK: if this is a valid way of giving it a defautl state
         if len(raw_labels) == 0 and len(raw_features) == 0:
