@@ -71,12 +71,16 @@ class NetworkFeatureFactory(FeatureFactory[PacketLike]):
         raw_features = []
         raw_labels = []
         # TODO:: Probably check for empty returns
+        self.logger.debug(f"We have obtaine {len(data)} flows to get info from.")
         for flow_key, feat_dict in data.items():
-            # Fetch all features as specified by keys in self.observable_features
+            # Avoid packets we dont care for
+            label_enum = STRING_TO_ATTACKS[feat_dict["label"]]
+            if label_enum not in self.expected_labels:
+                self.logger.debug(f"Skipping on label_id {label_enum}")
+                continue
+            # Fetch all features and labels as specified by keys in self.observable_features
             raw_features.append(self._get_flow_feats(feat_dict))
-            # Also fetch the labels for each feature.
-            # raw_labels.append(self.get_feature_strlist)
-            raw_labels.append(self.strings_to_idx[feat_dict["label"]])
+            raw_labels.append(label_enum)
 
         # CHECK: if this is a valid way of giving it a defautl state
         if len(raw_labels) == 0 and len(raw_features) == 0:
@@ -96,11 +100,11 @@ class NetworkFeatureFactory(FeatureFactory[PacketLike]):
     def get_feature_strlist(self):
         return self.observable_features
 
-    def _get_flow_feats(self, feat_dict) -> List:
+    def _get_flow_feats(self, feat_dict: Dict[str, float]) -> List:
         sample_features = []
         for feat_name, v in feat_dict.items():
             if feat_name in self.observable_features:
-                if isinstance(v, str):
+                if isinstance(v, str):  # i.e if is label
                     if v not in list(ATTACK_TO_STRING.values()):
                         raise ValueError(
                             f"Received string does not correspond to label."
