@@ -39,6 +39,7 @@ class GymSamplingEnv(gym.Env):
         sample_factory: SampleFactory,
         feature_factory: FeatureFactory,
         reward_calculator: RewardCalculatorLike,
+        sampling_budget: int,
     ):
 
         # Get Dependency Injection elements.
@@ -48,7 +49,9 @@ class GymSamplingEnv(gym.Env):
         # CHECK: Do we want to use NoReplacementSampler or DynamicSampler?
         # Remember that NoReplacementSampler has quite the overhead
         # meta_sampler = NoReplacementSampler(self.data_reader, sample_factory)
-        meta_sampler = DynamicWindowSampler(self.data_reader, sample_factory)
+        meta_sampler = DynamicWindowSampler(
+            self.data_reader, sample_factory, sampling_budget
+        )
 
         self.env = SamplingEnvironment(
             meta_sampler,

@@ -54,6 +54,12 @@ def argsies():
         type=str,
         help="Where training/paradigm constants get stored.",
     )
+    ap.add_argument(
+        "--sampling_budget",
+        default=12,
+        type=int,
+        help="How many sampling windows between window skips.",
+    )
 
     # Prelimns
     ap.add_argument(
@@ -118,6 +124,7 @@ def env_wrapper(env) -> gym.Env:
         sample_factory=sample_factory,
         feature_factory=feature_factory,
         reward_calculator=reward_calculator,
+        sampling_budget=args.sampling_budget,
     )
     print("MANAGED TO MAKE NETENV")
     # Use wrapper to normalize the data:

@@ -25,4 +25,5 @@ class Classifier(nn.Module):
 
     def forward(self, x):
         logits = self.net(x)
-        return logits
+        softmax = nn.Softmax(dim=1)
+        return softmax

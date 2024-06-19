@@ -69,12 +69,14 @@ class DynamicWindowSampler(TSSampler):
         self,
         timeseries_rdr: AbstractTimeSeriesReader,
         specific_samplefactory: SampleFactory,  # TOREM: the reader can take on this complexity this is redundant.
+        sampling_budget: int,
         lowest_resolution: float = 1e-6,
     ):
         self.lowest_resolution = lowest_resolution
         self.logger = setup_logger(__class__.__name__, logging.DEBUG)
         self.timeseries_rdr = timeseries_rdr
         self.specific_samplefactory = specific_samplefactory
+        self.sampling_budget = sampling_budget
 
         self.max_idx = len(self.timeseries_rdr) - 1
 
@@ -104,14 +106,28 @@ class DynamicWindowSampler(TSSampler):
         ~~~~~~~~~~
             e  - initial_precise: Whether we shoudl staat precisely at the provided time or at the closest packet to it
         """
-        stopping_time = starting_time + window_length
+        self.logger.debug(
+            f"Entering with starting_time {starting_time} (of type {type(starting_time)}), window_skip {window_skip} and window_length {window_length}"
+        )
 
-        idx_firstsamp = binary_search(self.timeseries_rdr, starting_time)
-        idx_lastsamp = binary_search(self.timeseries_rdr, stopping_time)
+        _starting_time = starting_time
+        _stopping_time = starting_time + window_length
 
-        # This call might be IPC so be careful not to abuse it
-        samples = self.timeseries_rdr[idx_firstsamp:idx_lastsamp]
-        # TODO: Create window skip loop(URGENT)
+        samples = []
+        for s in range(self.sampling_budget):
+            idx_firstsamp = binary_search(self.timeseries_rdr, starting_time)
+            idx_lastsamp = binary_search(self.timeseries_rdr, _stopping_time)
+
+            self.logger.debug(
+                f"Entering with starting_time {starting_time} and ending at {_stopping_time}"
+            )
+            self.logger.debug(f"Will sample between {idx_firstsamp} -> {idx_lastsamp}")
+
+            # This call might be IPC so be careful not to abuse it
+            samples += self.timeseries_rdr[idx_firstsamp:idx_lastsamp]
+            self.logger.debug(f"This contains {len(samples)}")
+            _starting_time += window_skip
+            _stopping_time = _starting_time + window_length
 
         return samples
 
@@ -178,7 +194,6 @@ class NoReplacementSampler(DynamicWindowSampler):
 
     def clear_memory(self):
         self.sampled_windows = []
-
 
 
 def binary_search(cpt_rdr: AbstractTimeSeriesReader, target_time: float) -> int:
