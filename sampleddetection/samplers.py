@@ -80,11 +80,13 @@ class DynamicWindowSampler(TSSampler):
 
     @property
     def init_time(self):
-        return self.timeseries_rdr.init_time
+        # Send back as normal python float (rather than np.float64)
+        return float(self.timeseries_rdr.init_time)
 
     @property
     def fin_time(self):
-        return self.timeseries_rdr.fin_time
+        # Send back as normal python float (rather than np.float64)
+        return float(self.timeseries_rdr.fin_time)
 
     def sample(
         self,

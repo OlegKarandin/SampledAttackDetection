@@ -13,6 +13,7 @@ from sampleddetection.environments import SamplingEnvironment
 from sampleddetection.readers import AbstractTimeSeriesReader, CSVReader
 from sampleddetection.reward_signals import RewardCalculatorLike
 from sampleddetection.samplers import (
+    DynamicWindowSampler,
     FeatureFactory,
     NoReplacementSampler,
     SampleFactory,
@@ -44,7 +45,10 @@ class GymSamplingEnv(gym.Env):
         self.logger = setup_logger(__class__.__name__)
         # TODO: we have to check this NoReplacementSampler is not too slow
         self.data_reader = ray.get(data_reader_ref)
-        meta_sampler = NoReplacementSampler(self.data_reader, sample_factory)
+        # CHECK: Do we want to use NoReplacementSampler or DynamicSampler?
+        # Remember that NoReplacementSampler has quite the overhead
+        # meta_sampler = NoReplacementSampler(self.data_reader, sample_factory)
+        meta_sampler = DynamicWindowSampler(self.data_reader, sample_factory)
 
         self.env = SamplingEnvironment(
             meta_sampler,
