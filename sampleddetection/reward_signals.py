@@ -5,6 +5,8 @@ import numpy as np
 import torch
 from torch import nn, optim
 
+from sampleddetection.utils import setup_logger
+
 
 class RewardCalculatorLike(ABC):
     """
@@ -39,6 +41,7 @@ class DNN_RewardCalculator(RewardCalculatorLike):
         self.estimation_signal = estimation_signal  # probably an DNN
         self.criterion = nn.CrossEntropyLoss()
         self.optim = optim.SGD(estimation_signal.parameters(), lr=1e-3)
+        self.logger = setup_logger(__class__.__name__)
         # Set up optimizers here if we want to simultaneously train whatever network we sned
 
     def calculate(self, **observations) -> float:
@@ -56,7 +59,11 @@ class DNN_RewardCalculator(RewardCalculatorLike):
         # retrieved_truths = self.groundtruth_ds.retrieve_truth()
         # Some categorigal loss here
         # losses = self.criterion(predictions, retrieved_truths)
+        self.logger.debug(
+            f"Criterion: \n\tinput:{predictions}\n\touttput:{grounded_truths}"
+        )
         losses = self.criterion(predictions, grounded_truths)
+        self.logger.debug(f"Resulting losses {losses}")
 
         loss_mean = losses.mean()
         # Reinforcement Learning need not gradients.

@@ -2,13 +2,14 @@
 @sourced from: https://github.com/hieulw/cicflowmeter
 """
 
+import time
 from enum import Enum
 from typing import Dict, Sequence, Tuple
 
 from networking.common_lingo import ATTACK_TO_STRING
 from networking.datastructures.packet_like import PacketLike
 from sampleddetection.common_lingo import TimeWindow
-from sampleddetection.utils import unusable
+from sampleddetection.utils import setup_logger, unusable
 
 from .constants import EXPIRED_UPDATE, GARBAGE_COLLECT_PACKETS
 from .context.packet_direction import PacketDirection
@@ -26,6 +27,7 @@ class SampledFlowSession:
         # WARN: this can lead to too many files being open. Careful there
         # self.logger = setup_logger(self.__class__.__name__)
         self.packets_count = 0
+        self.logger = setup_logger(__class__.__name__)
 
         # Sample Variables
         # CHECK: If we actually need to use below and its references
@@ -58,6 +60,7 @@ class SampledFlowSession:
         Outer function will make sure we have not met the end of the sampling window.
         """
 
+        _init_time = time.time()
         assert isinstance(
             packet, PacketLike
         ), "Assertion Error: Packet received is expected to be of type `PacketLike`"
@@ -80,7 +83,7 @@ class SampledFlowSession:
             return False
 
         self.packets_count += 1
-
+        _time_get_key = time.time()
         # If there is no forward flow with a count of 0
         if flow is None:
             # There might be one of it in reverse
@@ -112,13 +115,25 @@ class SampledFlowSession:
                     self.flows[(packet_flow_key, count)] = flow
                     break
 
+        _deciding_time = time.time()
+
         # Update time_window
         self.time_window.start = min(self.time_window.start, packet.time)
         self.time_window.end = max(self.time_window.end, packet.time)
 
         # Finally add_packet
+        _min_max_time = time.time()
         flow.add_packet(packet, direction)
+        _add_flow_end_time = time.time()
 
+        fin_time = time.time()
+        self.logger.debug(
+            f"on_packet_received takes {fin_time - _init_time:.3e} subtimes are:\n"
+            f"time_get_key : {_time_get_key-_init_time:.3e}\n"
+            f"_deciding_time : {_deciding_time - _time_get_key:.3e}\n"
+            f"_min_max_time : {_min_max_time - _deciding_time:.3e}\n"
+            f"Adding packet time : {_add_flow_end_time - _min_max_time:.3e}\n"
+        )
         return True
 
     def flow_label_distribution(self) -> Dict[Enum, int]:

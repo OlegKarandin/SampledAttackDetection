@@ -65,6 +65,9 @@ class SamplingEnvironment:
             self.cur_state.window_skip > 0,
             self.cur_state.window_length > 0,
         ]
+        self.logger.debug(
+            f"Starting cur_time is {self.cur_state.time_point} of type {type(self.cur_state.time_point)}"
+        )
         assert all(status), (
             "Make sure you initialize enviornment properly\n Specifically:"
             f"\n\ttime_point={self.cur_state.time_point}"
@@ -73,7 +76,7 @@ class SamplingEnvironment:
         )
 
         self.logger.debug(
-            f"The action is of type {type(action)} and looks like {action}"
+            f"The action is of type {type(action)} and looks like {action} with element-type {type(action.winlen_delta)}"
         )
 
         ### Preprocess data for new state
@@ -83,6 +86,10 @@ class SamplingEnvironment:
             self.WINDOW_SKIP_RANGE[1],
         )
         cur_time = self.cur_state.time_point + self.cur_state.window_skip
+        self.logger.debug(f"window_skip itself is of type {type(window_skip)}")
+        self.logger.debug(
+            f"After window_skip addition  cur_time is {cur_time} of type {type(cur_time)}"
+        )
         self.cur_state.time_point = cur_time
         # Onbserve after the rest
         window_length = clamp(
@@ -93,12 +100,12 @@ class SamplingEnvironment:
 
         ### ✨ Time to observe (take a step)
         self.logger.debug(
-            f"Sampling about to take place at current time {cur_time} with window lenght {window_length}"
+            f"Sampling about to take place at current time {cur_time} (of type {type(cur_time)}) with window lenght {window_length}"
         )
         # TODO: Ensure we can remove window_skipo later, its not being used already
         new_samples = self.sampler.sample(cur_time, -1, window_length)
+        self.logger.debug(f"Obtained {len(new_samples)} from our sampler")
 
-        self.logger.debug("Doing features")
         arraylike_features, labels = self.feature_factory.make_feature_and_label(
             new_samples
         )
@@ -126,7 +133,7 @@ class SamplingEnvironment:
         ### Update new state
         self.cur_state = new_state
         self.logger.debug(
-            f"Final obtained state is of size {len(new_state.observations)} and looks like \n{new_state.observations}"
+            f"Final obtained state is of size {len(new_state.observations)} "
         )
 
         return self.cur_state, return_reward
@@ -197,17 +204,22 @@ class SamplingEnvironment:
 
         # Starting Time
         if starting_time == None:
+            self.logger.debug(f"Unset, setting")
             self.cur_state.time_point = random.uniform(
                 min_time,
                 min_time + (max_time - min_time) * self.DAY_RIGHT_MARGIN,
             )
+            self.logger.debug(f"Unset, ensuring {type(self.cur_state.time_point)}")
         else:
             assert within(
                 starting_time, min_time, max_time * self.DAY_RIGHT_MARGIN
             ), f"Stating time {starting_time} out of range [{min_time},{max_time}]"
+            self.logger.debug(f"Preset, setting")
             self.cur_state.time_point = starting_time
 
-        self.logger.debug(f"Initialized starting_time to {self.cur_state.time_point}")
+        self.logger.debug(
+            f"Initialized starting_time to {self.cur_state.time_point} with type {type(self.cur_state.time_point)}"
+        )
         # Winskip
         if winskip == None:
             self.cur_state.window_skip = random.uniform(

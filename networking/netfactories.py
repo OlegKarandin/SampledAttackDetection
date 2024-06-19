@@ -80,8 +80,13 @@ class NetworkFeatureFactory(FeatureFactory[PacketLike]):
                 continue
             # Fetch all features and labels as specified by keys in self.observable_features
             raw_features.append(self._get_flow_feats(feat_dict))
+            self.logger.debug(
+                f"(flow_key:{flow_key}) Going through label string {label_str}"
+                f" with id {self.strings_to_idx[label_str]}"
+            )
             raw_labels.append(self.strings_to_idx[label_str])
 
+        self.logger.debug(f"Raw labels {raw_labels}")
         # CHECK: if this is a valid way of giving it a defautl state
         if len(raw_labels) == 0 and len(raw_features) == 0:
             arraylike_features = np.array(
