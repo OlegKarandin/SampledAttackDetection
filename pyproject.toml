@@ -18,8 +18,9 @@ hyperopt = "^0.2.7"
 joblib = "^1.4.0"
 scikit-learn = "^1.4.2"
 xgboost = "^2.0.3"
-gymnasium = {version = "^0.29.1", extras = ["box2d","mujoco"]}
 grpcio = "1.64.0"
+gymnasium = "0.28.1"
+ray = {extras = ["rllib"], version = "^2.24.0"}
 
 
 [tool.poetry.group.extras.dependencies]
