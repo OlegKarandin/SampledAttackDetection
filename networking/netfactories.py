@@ -87,7 +87,8 @@ class NetworkFeatureFactory(FeatureFactory[PacketLike]):
             raw_labels.append(self.strings_to_idx[label_str])
 
         self.logger.debug(f"Raw labels {raw_labels}")
-        # CHECK: if this is a valid way of giving it a defautl state
+
+        # CHECK: if this is a valid way of giving it a default state
         if len(raw_labels) == 0 and len(raw_features) == 0:
             arraylike_features = np.array(
                 [[0 for _ in range(len(self.observable_features))]]

@@ -104,7 +104,10 @@ class SamplingEnvironment:
         )
         # TODO: Ensure we can remove window_skipo later, its not being used already
         new_samples = self.sampler.sample(cur_time, -1, window_length)
-        self.logger.debug(f"Obtained {len(new_samples)} from our sampler")
+        if len(new_samples) >= 0:
+            self.logger.debug(f"Obtained {len(new_samples)} from our sampler")
+        else:
+            self.logger.warn(f"Length of samples is 0")
 
         arraylike_features, labels = self.feature_factory.make_feature_and_label(
             new_samples

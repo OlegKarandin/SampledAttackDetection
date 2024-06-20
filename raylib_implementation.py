@@ -3,11 +3,14 @@ Trying raylib for the experiments
 Likely mostly to serve as a benchmark of an industrial solution
 """
 
+import random
 import argparse
 import ast
 import json
 from argparse import ArgumentParser
 from pathlib import Path
+import torch
+import numpy as np
 
 import gymnasium as gym
 import ray
@@ -60,6 +63,12 @@ def argsies():
         type=int,
         help="How many sampling windows between window skips.",
     )
+    ap.add_argument(
+        "--random_seed",
+        default=420,
+        type=int,
+        help="Seed for random generators",
+    )
 
     # Prelimns
     ap.add_argument(
@@ -90,6 +99,12 @@ def argsies():
         args.action_dir = action_dir
 
     return args
+
+
+def set_all_seeds(seed: int):
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
 
 
 def env_wrapper(env) -> gym.Env:
@@ -182,7 +197,7 @@ if __name__ == "__main__":
     register_env("WrappedNetEnv", env_wrapper)
 
     print("Resetting the environment")
-    environment_seed = 42
+    set_all_seeds(args.random_seed)
     algo = (
         PPOConfig()
         .env_runners(num_env_runners=1)

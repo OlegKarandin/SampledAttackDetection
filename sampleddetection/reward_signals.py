@@ -49,9 +49,16 @@ class DNN_RewardCalculator(RewardCalculatorLike):
         assert isinstance(observations["ground_truths"], np.ndarray)
         assert isinstance(observations["features"], np.ndarray)
 
-        # Convert them to tensors
         grounded_truths = torch.LongTensor(observations["ground_truths"])
         features = torch.tensor(observations["features"], dtype=torch.float)
+        # CHECK: Experimental. Figure out a better method: <Begin>
+        # If we have no samples at all. (We have written this as all 0s for now)
+        if grounded_truths.sum() + features.sum() == 0:
+            return -10  # Some default very low value that should mean bad reward
+
+        # CHECK: Experimental. Figure out a better method: <End>
+
+        # Convert them to tensors
         # predictions: List[int] = kwargs["predictions"]
         predictions = self.estimation_signal(features)
 
@@ -65,7 +72,8 @@ class DNN_RewardCalculator(RewardCalculatorLike):
         losses = self.criterion(predictions, grounded_truths)
         self.logger.debug(f"Resulting losses {losses}")
 
-        loss_mean = losses.mean()
+        loss_mean = losses.mean() * (-1)
+        loss_mean = loss_mean * -1  # Convert to reward
         # Reinforcement Learning need not gradients.
 
         # Do SGD over the loss so we can learn to better classify.

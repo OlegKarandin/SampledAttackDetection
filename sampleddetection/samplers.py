@@ -68,6 +68,7 @@ class DynamicWindowSampler(TSSampler):
     def __init__(
         self,
         timeseries_rdr: AbstractTimeSeriesReader,
+        # TOREM: Not really being used
         specific_samplefactory: SampleFactory,  # TOREM: the reader can take on this complexity this is redundant.
         sampling_budget: int,
         lowest_resolution: float = 1e-6,
@@ -75,7 +76,6 @@ class DynamicWindowSampler(TSSampler):
         self.lowest_resolution = lowest_resolution
         self.logger = setup_logger(__class__.__name__, logging.DEBUG)
         self.timeseries_rdr = timeseries_rdr
-        self.specific_samplefactory = specific_samplefactory
         self.sampling_budget = sampling_budget
 
         self.max_idx = len(self.timeseries_rdr) - 1
@@ -115,11 +115,11 @@ class DynamicWindowSampler(TSSampler):
 
         samples = []
         for s in range(self.sampling_budget):
-            idx_firstsamp = binary_search(self.timeseries_rdr, starting_time)
+            idx_firstsamp = binary_search(self.timeseries_rdr, _starting_time)
             idx_lastsamp = binary_search(self.timeseries_rdr, _stopping_time)
 
             self.logger.debug(
-                f"Entering with starting_time {starting_time} and ending at {_stopping_time}"
+                f"Entering with starting_time {_starting_time} and ending at {_stopping_time}"
             )
             self.logger.debug(f"Will sample between {idx_firstsamp} -> {idx_lastsamp}")
 

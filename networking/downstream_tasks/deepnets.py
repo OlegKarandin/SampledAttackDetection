@@ -12,6 +12,7 @@ class Classifier(nn.Module):
 
         self.input_size = input_size
         self.output_size = output_size
+        self.softmax = nn.Softmax(dim=1)
 
         self.net = nn.Sequential(
             nn.Linear(input_size, 128),
@@ -25,5 +26,4 @@ class Classifier(nn.Module):
 
     def forward(self, x):
         logits = self.net(x)
-        softmax = nn.Softmax(dim=1)
-        return softmax
+        return self.softmax(logits)
