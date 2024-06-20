@@ -1,6 +1,5 @@
 {
   "desired_features": [
-    "label",
     "fwd_pkt_len_max",
     "fwd_pkt_len_min",
     "fwd_pkt_len_mean",

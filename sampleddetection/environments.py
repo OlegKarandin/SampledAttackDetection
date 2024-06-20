@@ -20,8 +20,8 @@ class SamplingEnvironment:
 
     # Hyperparameters
     # CHECK: That we hav good ranges
-    WINDOW_SKIP_RANGE = [1e-7, 1e2]
-    WINDOW_LENGTH_RANGE = [1e-6, 1e-3]
+    WINDOW_SKIP_RANGE = [1e-7, 6e2]
+    WINDOW_LENGTH_RANGE = [1e-6, 1e-2]
     AMOUNT_OF_SAMPLES_PER_ACTION = 1  # Where action means selection of frequency/window
     PREVIOUS_AMNT_SAMPLES = 12
     DAY_RIGHT_MARGIN = 1  # CHECK: Must be equal 1 at deployment
@@ -136,7 +136,7 @@ class SamplingEnvironment:
         ### Update new state
         self.cur_state = new_state
         self.logger.debug(
-            f"Final obtained state is of size {len(new_state.observations)} "
+            f"Final obtained state of type {type(new_state.observations)} is of size {len(new_state.observations)} "
         )
 
         return self.cur_state, return_reward

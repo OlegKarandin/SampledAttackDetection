@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Dict, List, Union
 
 import gymnasium as gym
 import numpy as np
@@ -32,8 +32,7 @@ class GymSamplingEnv(gym.Env):
     def __init__(
         self,
         num_obs_elements: int,
-        num_possible_actions: int,
-        # data_reader: AbstractTimeSeriesReader,
+        actions_max_vals: List[float],
         data_reader_ref: ObjectRef,
         action_idx_to_direction: Dict[int, int],  # TODO: maybe change to simply scaling
         sample_factory: SampleFactory,
@@ -70,14 +69,14 @@ class GymSamplingEnv(gym.Env):
         high_value = 1.0  # Replace with the maximum value for each element
         # TODO: Actually define the limtis here
         self.observation_space = gym.spaces.Box(
-            low=np.full((n,), low_value, dtype=np.float32),
-            high=np.full((n,), high_value, dtype=np.float32),
-            dtype=np.float32,
+            low=np.full((n,), 0, dtype=np.float32),
+            high=np.full((n,), np.inf, dtype=np.float32),
+            dtype=np.float64,
         )
         self.action_space = gym.spaces.Box(
             low=np.array([0, 0]),
-            high=np.array([num_possible_actions, num_possible_actions]),
-            dtype=np.float32,
+            high=np.array(actions_max_vals),
+            dtype=np.float64,
         )
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2, i.e. MultiDiscrete([size, size]).
@@ -138,6 +137,7 @@ class GymSamplingEnv(gym.Env):
         seed: Union[int, None] = None,
         options: Union[dict[str, Any], None] = None,
     ):
+        # CHECK: Why would we want to reset the generator here?
         super().reset(seed=seed)  # type:ignore
         # Return observations as are expected
 

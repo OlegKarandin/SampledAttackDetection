@@ -2,7 +2,7 @@ from enum import Enum
 from typing import Dict, List, Sequence, Set, Tuple
 
 import numpy as np
-
+from time import time
 from networking.common_lingo import ATTACK_TO_STRING, STRING_TO_ATTACKS, Attack
 from networking.datastructures.flowsession import SampledFlowSession
 from networking.datastructures.packet_like import CSVPacket, PacketLike
@@ -36,7 +36,7 @@ class NetworkFeatureFactory(FeatureFactory[PacketLike]):
 
     def __init__(self, observable_features: Sequence[str], labels: Sequence[Attack]):
         self.logger = setup_logger(__class__.__name__)
-        self.observable_features: Sequence[str] = observable_features
+        self.observable_features: Set[str] = set(observable_features)
         self.expected_labels = (
             list(labels)
             + [
@@ -62,9 +62,16 @@ class NetworkFeatureFactory(FeatureFactory[PacketLike]):
         flowsession.reset()
 
         for raw_sample in raw_sample_list:
+            curt = time()
             flowsession.on_packet_received(raw_sample)
+            self.logger.debug(
+                f"Time to add packet (from make_feature_and_label) is {time() - curt}"
+            )
 
         # Once all the flow is retrieved we create an array-like
+        self.logger.debug(
+            f"Now calculating all the data for flow session with {len(flowsession.flows)}"
+        )
         data: Dict[Tuple, Dict] = flowsession.get_data()
 
         raw_features = []

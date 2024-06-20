@@ -133,7 +133,7 @@ def env_wrapper(env) -> gym.Env:
     env = gym.make(
         "NetEnv",
         num_obs_elements=len(args.obs_elements),
-        num_possible_actions=args.num_possible_actions,
+        actions_max_vals=Action(60, 10),
         data_reader_ref=csv_reader_ref,
         action_idx_to_direction=args.action_dir,
         sample_factory=sample_factory,
@@ -143,7 +143,7 @@ def env_wrapper(env) -> gym.Env:
     )
     print("MANAGED TO MAKE NETENV")
     # Use wrapper to normalize the data:
-    env = NormalizeObservation(env)
+    # env = NormalizeObservation(env)
     return env
 
 
