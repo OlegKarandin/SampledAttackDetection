@@ -25,6 +25,7 @@ from networking.common_lingo import Attack
 from networking.downstream_tasks.deepnets import Classifier
 from networking.netfactories import NetworkFeatureFactory, NetworkSampleFactory
 from networking.readers import NetCSVReader
+from sampleddetection.datastructures import Action
 from sampleddetection.reward_signals import DNN_RewardCalculator
 from sampleddetection.utils import setup_logger
 
@@ -194,21 +195,29 @@ if __name__ == "__main__":
 
     # Make the environment
     print("Make the environment")
+
     register_env("WrappedNetEnv", env_wrapper)
 
     print("Resetting the environment")
     set_all_seeds(args.random_seed)
     algo = (
         PPOConfig()
-        .env_runners(num_env_runners=1)
-        .resources(num_gpus=0)
+        .env_runners(num_env_runners=2)
+        .resources(num_gpus=1)
         .environment(env="WrappedNetEnv")
+        .rollouts(sample_timeout_s=10000)  # Set the sample_timeout_s parameter here
+        .training(train_batch_size=512)
         .build()
     )
-
+    sample_timeout_s = algo.config.get("sample_timeout_s", "Not set")
+    batch_size = algo.config.get("train_batch_size", "Not set")
+    logger.info(f"The `sample_timeout_s` parmeter is {sample_timeout_s}")
+    logger.info(f"The `batch_size` parameter is {batch_size}")
     for i in range(20):
         result = algo.train()
-        print(pretty_print(result))
+        logger.info(f"Finished with {i}th epoch")
+        logger.info(pretty_print(result))
+    print("Training is finished")
 
     # Build a Algorithm object from the config and run 1 training iteration.
     # algo = ppo.PPO(env=MetaEnv, config={"num_obs_elements": args.num_obs_elements})
