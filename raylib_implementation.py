@@ -9,6 +9,8 @@ import json
 import random
 from argparse import ArgumentParser
 from pathlib import Path
+from time import time
+from typing import Any, Dict, Optional, Union
 
 import gymnasium as gym
 import numpy as np
@@ -16,9 +18,23 @@ import ray
 import torch
 import tqdm
 from gymnasium.wrappers.normalize import NormalizeObservation
+from ray.rllib.algorithms.callbacks import DefaultCallbacks
 from ray.rllib.algorithms.ppo import PPOConfig
+from ray.rllib.core.rl_module.rl_module import RLModule
+from ray.rllib.env.base_env import BaseEnv
+from ray.rllib.env.env_runner import EnvRunner
+from ray.rllib.evaluation import RolloutWorker
+from ray.rllib.evaluation.episode import Episode
+from ray.rllib.evaluation.episode_v2 import EpisodeV2
+from ray.rllib.policy.policy import Policy
+from ray.rllib.policy.sample_batch import MultiAgentBatch, SampleBatch
+from ray.rllib.utils.metrics.metrics_logger import MetricsLogger
+from ray.rllib.utils.typing import EpisodeType, PolicyID
 from ray.tune.logger import pretty_print
 from ray.tune.registry import register_env
+from wandb.sdk.wandb_run import Run
+
+import wandb
 
 # NOTE: Importing this is critical to load all model automatically.
 from gymenvs.explicit_registration import explicit_registration
@@ -108,7 +124,18 @@ def argsies():
         help="Map between indices outputted by model vs values they actually represent. ",
     )
 
-    # Parse the argument
+    # Logging Stuff
+    ap.add_argument("-w", "--wandb", action="store_true")
+    ap.add_argument(
+        "--wandb_project_name",
+        default="SamplingSimulations",
+        help="Project name",
+        type=str,
+    )
+    ap.add_argument("--wr_name", help="FirstWandbSample", type=str)
+    ap.add_argument("--wr_notes", help="Nothing of note", type=str)
+
+    ### Parse the argument
     args = ap.parse_args()
 
     assert Path(
@@ -135,6 +162,111 @@ def set_all_seeds(seed: int):
     torch.manual_seed(seed)
     np.random.seed(seed)
     random.seed(seed)
+
+
+def train_result_callback(info):
+    result = info["result"]
+    wandb.log()
+
+
+def generate_parameterized_callback(wandb_run: Run):
+    return type(
+        "ParamCallback",
+        (MyCallbacks,),
+        {
+            "wandb_run": wandb_run,
+        },
+    )
+
+
+class MyCallbacks(DefaultCallbacks):
+
+    LIST_OF_INTEREST = [
+        ["env_runners", "episode_reward_min"],
+        ["env_runners", "episode_reward_mean"],
+        ["env_runners", "episode_return_max"],
+        ["env_runners", "num_faulty_episodes"],
+        ["info", "learner", "default_policy", "learner_stats", "cur_lr"],
+        ["info", "learner", "default_policy", "learner_stats", "total_loss"],
+        ["info", "learner", "default_policy", "learner_stats", "policy_loss"],
+        ["info", "learner", "default_policy", "learner_stats", "vf_loss"],
+        [
+            "info",
+            "learner",
+            "default_policy",
+            "num_grad_updates_lifetime",
+        ],
+        [
+            "info",
+            "learner",
+            "default_policy",
+            "diff_num_grad_updates_vs_sampler_policy",
+        ],
+        ["info", "num_agent_steps_sampled"],
+        ["info", "num_agent_steps_trained"],
+        ["info", "num_env_steps_trained"],
+        ["agent_timesteps_total"],
+        ["timers", "sample_time_ms"],
+        ["num_env_steps_sampled_throughput_per_sec"],
+    ]
+
+    def __init__(self, wandb_run: Run) -> None:
+        super().__init__()
+        self.logger = setup_logger(__class__.__name__)
+        self.wandb_run = wandb_run
+
+    def on_train_result(self, *, algorithm, result: dict, **kwargs):
+        # you can mutate the result dict to add new fields to return
+        result["callback_ok"] = True
+
+        self.logger.debug(f"Premature results {result}")
+        report_dict = {}
+        for kc in self.LIST_OF_INTEREST:
+            val = keychain_retrieve(result, kc)
+            if val != None:
+                report_dict[".".join(kc)] = val
+        self.logger.debug(f"Reporting results {report_dict}")
+
+        if self.wandb_run:
+            self.wandb_run.log(report_dict)
+
+    def on_sample_end(  # type:ignore
+        self, *, worker: RolloutWorker, samples: MultiAgentBatch, **kwargs
+    ):
+        # Sanity Check on aount of samples. Take a look at one looks like:
+        self.logger.debug(f"Policy batches look like {samples.policy_batches}")
+        self.logger.debug(
+            f"Observations (shape {samples.policy_batches['default_policy']['obs'].shape}) themselves: {samples.policy_batches['default_policy']['obs']}"
+        )
+        assert (
+            samples.count == 128
+        ), f"Sample count does not match 128 it is actually {samples.count}"
+
+    def on_episode_end(
+        self,
+        *,
+        episode: Union[EpisodeType, Episode, EpisodeV2],
+        env_runner: Optional[EnvRunner] = None,
+        metrics_logger: Optional[MetricsLogger] = None,
+        env: Optional[gym.Env] = None,
+        env_index: int,
+        rl_module: Optional[RLModule] = None,
+        worker: Optional["EnvRunner"] = None,
+        base_env: Optional[BaseEnv] = None,
+        policies: Optional[Dict[PolicyID, Policy]] = None,
+        **kwargs,
+    ) -> None:
+        self.logger.debug(f"Episode ends")
+
+    # def on_evaluate_start(
+    #     self,
+    #     *,
+    #     algorithm: "Algorithm",#type:ignore
+    #     metrics_logger: Optional[MetricsLogger] = None,
+    #     **kwargs,
+    #
+    # ) -> None:
+    #     pass
 
 
 def env_wrapper(env) -> gym.Env:
@@ -187,7 +319,16 @@ if __name__ == "__main__":
     # ray_logger.setLevel(logging.WARNING)
     logger = setup_logger(__name__)
     logger.info("Starting main part of script.")
-    # gymenvs.register_env()
+
+    # Initialize Wandb Logger
+    wandb_run = None
+    if args.wandb:
+        logger.info("🪄 Instantiating WandB")
+        wandb_run = wandb.init(
+            project=args.wandb_project_name,
+            name=args.wr_name,
+            notes=args.wr_notes,
+        )
 
     # Define which labels one expects on the given dataset
     attacks_to_detect = [
@@ -235,7 +376,7 @@ if __name__ == "__main__":
     set_all_seeds(args.random_seed)
     algo = (
         PPOConfig()
-        .env_runners(num_env_runners=2)
+        .env_runners(num_env_runners=1)
         .resources(num_gpus=1)
         .environment(env="WrappedNetEnv")
         .training(train_batch_size=128)  # How many steps are used to update model
@@ -244,6 +385,9 @@ if __name__ == "__main__":
     )
     sample_timeout_s = algo.config.get("sample_timeout_s", "Not set")
     batch_size = algo.config.get("train_batch_size", "Not set")
+
+    # This is for trying the batches
+
     logger.info(f"The `sample_timeout_s` parmeter is {sample_timeout_s}")
     logger.info(f"The `batch_size` parameter is {batch_size}")
     epoch_time = []

@@ -1,8 +1,9 @@
 from enum import Enum
+from time import time
 from typing import Dict, List, Sequence, Set, Tuple
 
 import numpy as np
-from time import time
+
 from networking.common_lingo import ATTACK_TO_STRING, STRING_TO_ATTACKS, Attack
 from networking.datastructures.flowsession import SampledFlowSession
 from networking.datastructures.packet_like import CSVPacket, PacketLike
@@ -65,7 +66,7 @@ class NetworkFeatureFactory(FeatureFactory[PacketLike]):
             curt = time()
             flowsession.on_packet_received(raw_sample)
             self.logger.debug(
-                f"Time to add packet (from make_feature_and_label) is {time() - curt}"
+                f"Time to add packet with timestamp {raw_sample.time} (from make_feature_and_label) is {time() - curt}"
             )
 
         # Once all the flow is retrieved we create an array-like

@@ -5,6 +5,7 @@ from typing import Any, Generic, List, Sequence, Tuple, TypeVar
 
 import numpy as np
 
+from networking.datastructures.packet_like import CSVPacket
 from sampleddetection.datastructures import SampleLike
 from sampleddetection.readers import AbstractTimeSeriesReader
 
@@ -124,8 +125,16 @@ class DynamicWindowSampler(TSSampler):
             # self.logger.debug(f"Will sample between {idx_firstsamp} -> {idx_lastsamp}")
 
             # This call might be IPC so be careful not to abuse it
-            samples += self.timeseries_rdr[idx_firstsamp:idx_lastsamp]
-            self.logger.debug(f"This contains {len(samples)}")
+            cur_samples = self.timeseries_rdr[idx_firstsamp:idx_lastsamp]
+            samples += cur_samples
+
+            ### DEBUG:
+            # for c in cur_samples:
+            #     self.logger.debug(f"\tSampled packet at time {c.time}")
+
+            # self.logger.debug(
+            #     f"{s}thn (Win:{_starting_time}->{_stopping_time}) batch contains {len(cur_samples)} samples"
+            # )
             _starting_time += window_skip
             _stopping_time = _starting_time + window_length
 

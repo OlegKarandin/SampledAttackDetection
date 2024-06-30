@@ -36,6 +36,9 @@ from sampleddetection.samplers.window_sampler import (
     UniformWindowSampler,
 )
 
+# FIX: I internally changed the units to just seconds with 6 decimal points.
+# I have not yet updated this file to reflec that
+
 
 def test_flowbytes(flowsesh: SampledFlowSession):
     data = flowsesh.get_data()

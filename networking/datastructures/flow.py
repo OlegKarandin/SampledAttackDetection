@@ -3,10 +3,12 @@ from typing import Any, NamedTuple
 
 from scapy.all import Packet
 
+import pandas as pd
+import json
 from networking.common_lingo import ATTACK_TO_STRING, Attack
 from networking.datastructures.packet_like import PacketLike
 from sampleddetection.common_lingo import TimeWindow
-from sampleddetection.utils import get_statistics
+from sampleddetection.utils import get_statistics, setup_logger
 
 from . import constants
 from .context import packet_flow_key
@@ -34,6 +36,9 @@ class Flow:
             self.src_port,
             self.dest_port,
         ) = packet_flow_key.get_packet_flow_key(packet, direction)
+
+        # DEBUG:remove this logger pls
+        # self.logger = setup_logger(__class__.__name__, overwrite=False)
 
         self.packets = []
         self.flow_interarrival_time = []
@@ -112,7 +117,7 @@ class Flow:
             "protocol": self.protocol,
             # Basic information from packet times
             "timestamp": packet_time.get_time_stamp(),
-            "flow_duration": 1e6 * packet_time.get_duration(),
+            "flow_duration": packet_time.get_duration(),
             "flow_byts_s": flow_bytes.get_rate(),
             "flow_pkts_s": packet_count.get_rate(),
             "fwd_pkts_s": packet_count.get_rate(PacketDirection.FORWARD),
@@ -219,6 +224,30 @@ class Flow:
         data["subflow_fwd_byts"] = data["totlen_fwd_pkts"]
         data["subflow_bwd_byts"] = data["totlen_bwd_pkts"]
 
+        # CHECK: for critical errros
+        if any(
+            [
+                data["fwd_iat_min"] < 0,
+                data["pkt_len_min"] < 0,
+            ]
+        ):
+            # DUMP all the packets into a files
+            print("ERROR: Incorrect values for statistics. Will share them in a dump.")
+            with open("dump.csv", "w") as f:
+                cols = self.packets[0][0].row.index.values
+                f.write(",".join(cols) + "\n")
+                for packet, _ in self.packets:
+                    # pack_info = packet.row.apply({lambda x: str(x)}).values
+                    pack_info = [str(e) for e in packet.row.values]
+                    f.write(",".join(pack_info) + "\n")
+
+            # Let me alsdo dump all attributes to see which ones are negative
+            with open("dump.json", "w") as f:
+                # Convert all of data into pretty json
+                json_data = json.dumps(data, indent=3)
+                f.write(json_data)
+            exit()
+
         # Finally the label
         data["label"] = ATTACK_TO_STRING[self.label]
 
@@ -252,9 +281,11 @@ class Flow:
         self.update_subflow(packet)
 
         if self.start_timestamp != 0:
-            self.flow_interarrival_time.append(
-                1e6 * (packet.time - self.latest_timestamp)
-            )
+            self.flow_interarrival_time.append((packet.time - self.latest_timestamp))
+            # self.logger.debug(
+            #     f"Calculation of flow_interarrival_time {self.flow_interarrival_time[-1]}\n\t"
+            #     f"With current packet time = {packet.time}, self.latest_timestamp: {self.latest_timestamp}"
+            # )
 
         self.latest_timestamp = max([packet.time, self.latest_timestamp])
 
@@ -270,6 +301,7 @@ class Flow:
         # First packet of the flow
         if self.start_timestamp == 0:
             self.start_timestamp = packet.time
+            # self.logger.debug(f"Adding first time_stamp {packet.time}")
             self.protocol = packet.layers[-1]
 
     def update_subflow(self, packet):
@@ -296,8 +328,8 @@ class Flow:
             # Creates a new subflow
             duration = abs(float(self.last_active - self.start_active))
             if duration > 0:
-                self.active.append(1e6 * duration)
-            self.idle.append(1e6 * (current_time - self.last_active))
+                self.active.append(duration)
+            self.idle.append((current_time - self.last_active))
             self.start_active = current_time
             self.last_active = current_time
         else:
