@@ -3,17 +3,18 @@ Trying raylib for the experiments
 Likely mostly to serve as a benchmark of an industrial solution
 """
 
-import random
 import argparse
 import ast
 import json
+import random
 from argparse import ArgumentParser
 from pathlib import Path
-import torch
-import numpy as np
 
 import gymnasium as gym
+import numpy as np
 import ray
+import torch
+import tqdm
 from gymnasium.wrappers.normalize import NormalizeObservation
 from ray.rllib.algorithms.ppo import PPOConfig
 from ray.tune.logger import pretty_print
@@ -27,7 +28,29 @@ from networking.netfactories import NetworkFeatureFactory, NetworkSampleFactory
 from networking.readers import NetCSVReader
 from sampleddetection.datastructures import Action
 from sampleddetection.reward_signals import DNN_RewardCalculator
-from sampleddetection.utils import setup_logger
+from sampleddetection.utils import (
+    clear_screen,
+    get_keys_of_interest,
+    keychain_retrieve,
+    setup_logger,
+)
+
+TYPE_CHECKING = True
+
+if TYPE_CHECKING:
+    from ray.rllib.algorithms.algorithm import Algorithm
+    from ray.rllib.env.env_runner import EnvRunner
+    from ray.rllib.env.env_runner_group import EnvRunnerGroup
+
+LOCAL_KEYS_OF_INTEREST = [
+    ["env_runners", "episode_reward_min"],
+    ["env_runners", "episode_reward_mean"],
+    ["env_runners", "episode_return_max"],
+    ["info", "learner", "default_policy", "learner_stats", "cur_lr"],
+    ["info", "learner", "default_policy", "learner_stats", "total_loss"],
+    ["info", "learner", "default_policy", "learner_stats", "policy_loss"],
+    ["info", "learner", "default_policy", "learner_stats", "vf_loss"],
+]
 
 
 def str_to_dict(s):
@@ -45,6 +68,12 @@ def argsies():
         default="./data/Wednesday.csv",
         type=str,
         help="Path to where the data lies",
+    )
+    ap.add_argument(
+        "--epochs",
+        default=20,
+        type=int,
+        help="Training epochs",
     )
     ap.add_argument(
         "--num_possible_actions",
@@ -150,8 +179,12 @@ def env_wrapper(env) -> gym.Env:
 
 if __name__ == "__main__":
     args = argsies()
+    print(f"Do we have epochs? {args.epochs}")
 
     # Make the logger
+    # logging.basicConfig(level=logging.DEBUG)
+    # ray_logger = logging.getLogger("ray")
+    # ray_logger.setLevel(logging.WARNING)
     logger = setup_logger(__name__)
     logger.info("Starting main part of script.")
     # gymenvs.register_env()
@@ -205,18 +238,34 @@ if __name__ == "__main__":
         .env_runners(num_env_runners=2)
         .resources(num_gpus=1)
         .environment(env="WrappedNetEnv")
-        .rollouts(sample_timeout_s=10000)  # Set the sample_timeout_s parameter here
-        .training(train_batch_size=512)
+        .training(train_batch_size=128)  # How many steps are used to update model
+        .callbacks(lambda: MyCallbacks(wandb_run))  # type : ignore
         .build()
     )
     sample_timeout_s = algo.config.get("sample_timeout_s", "Not set")
     batch_size = algo.config.get("train_batch_size", "Not set")
     logger.info(f"The `sample_timeout_s` parmeter is {sample_timeout_s}")
     logger.info(f"The `batch_size` parameter is {batch_size}")
-    for i in range(20):
+    epoch_time = []
+    for i in tqdm.tqdm(range(args.epochs), desc="Training"):
+        start_time = time()
         result = algo.train()
-        logger.info(f"Finished with {i}th epoch")
-        logger.info(pretty_print(result))
+        epoch_time.append(time() - start_time)
+        clear_screen()
+        logger.info(f"Finished with {i}th epoch with time {epoch_time[-1]}.")
+        desired_dict = get_keys_of_interest(result, LOCAL_KEYS_OF_INTEREST)
+        logger.info(
+            f"""
+        Training (epoch {i+1}/{args.epochs}):
+        ---------
+        ep_reward_min: {desired_dict.get('env_runners.episode_reward_min', 'N/A')}
+        ep_reward_mean: {desired_dict.get('env_runners.episode_reward_mean', 'N/A')}
+        ep_reward_max: {desired_dict.get('env_runners.episode_reward_max', 'N/A')}
+        total_loss: {desired_dict.get('info.learner.default_policy.learner_stats.total_loss', 'N/A')}
+        policy_loss: {desired_dict.get('info.learner.default_policy.learner_stats.policy_loss', 'N/A')}
+        vf_loss: {desired_dict.get('info.learner.default_policy.learner_stats.vf_loss', 'N/A')}
+        """
+        )
     print("Training is finished")
 
     # Build a Algorithm object from the config and run 1 training iteration.

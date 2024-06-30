@@ -3,6 +3,7 @@ import logging
 import os
 import random
 from datetime import datetime
+from typing import Any, List, Union
 
 import numpy as np
 
@@ -18,7 +19,37 @@ FLAGS_TO_VAL = {
 }
 
 
-def setup_logger(logger_name: str, logging_level=logging.INFO, multiprocess=True):
+def keychain_retrieve(nested_dict, keys) -> Union[None, Any]:
+    current_dict_or_finval = nested_dict
+    counter = 1
+    for key in keys:
+        if isinstance(current_dict_or_finval, dict):
+            if key in current_dict_or_finval:
+                current_dict_or_finval = current_dict_or_finval[key]
+            else:
+                current_dict_or_finval = None
+        else:
+            return current_dict_or_finval
+        counter += 1
+    return current_dict_or_finval
+
+
+def get_keys_of_interest(source_dict: dict, keys_of_interest: List[List[str]]) -> dict:
+    target_dict = {}
+    for kc in keys_of_interest:
+        val = keychain_retrieve(source_dict, kc)
+        if val != None:
+            target_dict[".".join(kc)] = val
+    return target_dict
+
+
+def clear_screen():
+    os.system("cls" if os.name == "nt" else "clear")
+
+
+def setup_logger(
+    logger_name: str, logging_level=logging.INFO, multiprocess=True, overwrite=True
+):
     """
     Helper function for setting up logger both in stdout and file
     """
