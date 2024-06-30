@@ -7,3 +7,6 @@ launch.json
 logs/
 *.log
 *__pycache__/
+*wandb*
+*.json
+*.csv
