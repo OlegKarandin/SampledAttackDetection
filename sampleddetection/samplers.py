@@ -106,9 +106,9 @@ class DynamicWindowSampler(TSSampler):
         ~~~~~~~~~~
             e  - initial_precise: Whether we shoudl staat precisely at the provided time or at the closest packet to it
         """
-        self.logger.debug(
-            f"Entering with starting_time {starting_time} (of type {type(starting_time)}), window_skip {window_skip} and window_length {window_length}"
-        )
+        # self.logger.debug(
+        #     f"Entering with starting_time {starting_time} (of type {type(starting_time)}), window_skip {window_skip} and window_length {window_length}"
+        # )
 
         _starting_time = starting_time
         _stopping_time = starting_time + window_length
@@ -118,10 +118,10 @@ class DynamicWindowSampler(TSSampler):
             idx_firstsamp = binary_search(self.timeseries_rdr, _starting_time)
             idx_lastsamp = binary_search(self.timeseries_rdr, _stopping_time)
 
-            self.logger.debug(
-                f"Entering with starting_time {_starting_time} and ending at {_stopping_time}"
-            )
-            self.logger.debug(f"Will sample between {idx_firstsamp} -> {idx_lastsamp}")
+            # self.logger.debug(
+            #     f"Entering with starting_time {_starting_time} and ending at {_stopping_time}"
+            # )
+            # self.logger.debug(f"Will sample between {idx_firstsamp} -> {idx_lastsamp}")
 
             # This call might be IPC so be careful not to abuse it
             samples += self.timeseries_rdr[idx_firstsamp:idx_lastsamp]

@@ -76,6 +76,9 @@ class SampledFlowSession:
         # Ensure that we are not taking sample outside our window
 
         # Creates a key variable to check
+        # self.logger.debug(
+        #     f"Packet with timestamp {packet.time} look for key going forward"
+        # )
         try:
             packet_flow_key = get_packet_flow_key(packet, direction)
             flow = self.flows.get((packet_flow_key, count))
@@ -85,15 +88,24 @@ class SampledFlowSession:
         self.packets_count += 1
         _time_get_key = time.time()
         # If there is no forward flow with a count of 0
+        # self.logger.debug(
+        #     f"Packet with timestamp {packet.time} key found. Looking in dict"
+        # )
         if flow is None:
-            # There might be one of it in reverse
+
             direction = PacketDirection.REVERSE
             packet_flow_key = get_packet_flow_key(packet, direction)
             flow = self.flows.get((packet_flow_key, count))
+            # self.logger.debug(
+            #     f"Packet with timestamp {packet.time} not found forward flow maybe "
+            # )
 
         if flow is None:
             # If no flow exists create a new flow
             direction = PacketDirection.FORWARD
+            # self.logger.debug(
+            #     f"Packet with timestamp {packet.time} not found in any direction. Trying to create"
+            # )
             flow = Flow(packet, direction)
             packet_flow_key = get_packet_flow_key(packet, direction)
             self.flows[(packet_flow_key, count)] = flow
@@ -105,12 +117,23 @@ class SampledFlowSession:
             # If the packet exists in the flow but the packet is sent
             # after too much of a delay than it is a part of a new flow.
             expired = EXPIRED_UPDATE
+            # self.logger.debug(
+            #     f"Packet with timestamp {packet.time} checking if expired."
+            # )
             while (packet.time - flow.latest_timestamp) > expired:
                 count += 1
+                # self.logger.debug(
+                #     f"\t With packet.time {packet.time}, flow.latest_timestamp {flow.latest_timestamp} "
+                #     f"and resulting count {count}"
+                # )
                 expired += EXPIRED_UPDATE
                 flow = self.flows.get((packet_flow_key, count))
 
                 if flow is None:
+                    # self.logger.debug(
+                    #     f"\t\t Found our whole at {packet}, {direction} and count {count}"
+                    #     f"and resulting count {count}"
+                    # )
                     flow = Flow(packet, direction)
                     self.flows[(packet_flow_key, count)] = flow
                     break
@@ -124,16 +147,17 @@ class SampledFlowSession:
         # Finally add_packet
         _min_max_time = time.time()
         flow.add_packet(packet, direction)
+        # self.logger.debug(f"SampledFlowSession adding packet {packet.time}")
         _add_flow_end_time = time.time()
 
         fin_time = time.time()
-        self.logger.debug(
-            f"on_packet_received takes {fin_time - _init_time:.3e} subtimes are:\n"
-            f"time_get_key : {_time_get_key-_init_time:.3e}\n"
-            f"_deciding_time : {_deciding_time - _time_get_key:.3e}\n"
-            f"_min_max_time : {_min_max_time - _deciding_time:.3e}\n"
-            f"Adding packet time : {_add_flow_end_time - _min_max_time:.3e}\n"
-        )
+        # self.logger.debug(
+        #     f"on_packet_received takes {fin_time - _init_time:.3e} subtimes are:\n"
+        #     f"time_get_key : {_time_get_key-_init_time:.3e}\n"
+        #     f"_deciding_time : {_deciding_time - _time_get_key:.3e}\n"
+        #     f"_min_max_time : {_min_max_time - _deciding_time:.3e}\n"
+        #     f"Adding packet time : {_add_flow_end_time - _min_max_time:.3e}\n"
+        # )
         return True
 
     def flow_label_distribution(self) -> Dict[Enum, int]:

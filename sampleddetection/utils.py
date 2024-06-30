@@ -42,7 +42,8 @@ def setup_logger(logger_name: str, logging_level=logging.INFO, multiprocess=True
     )
     os.makedirs(log_dir, exist_ok=True)
     log_file_path = os.path.join(log_dir, f"{logger_name_local}.log")
-    fh = logging.FileHandler(log_file_path, mode="w")
+    mode = "w" if overwrite else "a"
+    fh = logging.FileHandler(log_file_path, mode=mode)
     fh.setLevel(logging.DEBUG)
 
     # create formatter and add it to the handlers

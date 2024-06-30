@@ -65,9 +65,9 @@ class SamplingEnvironment:
             self.cur_state.window_skip > 0,
             self.cur_state.window_length > 0,
         ]
-        self.logger.debug(
-            f"Starting cur_time is {self.cur_state.time_point} of type {type(self.cur_state.time_point)}"
-        )
+        # self.logger.debug(
+        #     f"Starting cur_time is {self.cur_state.time_point} of type {type(self.cur_state.time_point)}"
+        # )
         assert all(status), (
             "Make sure you initialize enviornment properly\n Specifically:"
             f"\n\ttime_point={self.cur_state.time_point}"
@@ -75,9 +75,9 @@ class SamplingEnvironment:
             f"\n\twindow_length={self.cur_state.window_length}"
         )
 
-        self.logger.debug(
-            f"The action is of type {type(action)} and looks like {action} with element-type {type(action.winlen_delta)}"
-        )
+        # self.logger.debug(
+        #     f"The action is of type {type(action)} and looks like {action} with element-type {type(action.winlen_delta)}"
+        # )
 
         ### Preprocess data for new state
         window_skip = clamp(
@@ -86,10 +86,12 @@ class SamplingEnvironment:
             self.WINDOW_SKIP_RANGE[1],
         )
         cur_time = self.cur_state.time_point + self.cur_state.window_skip
-        self.logger.debug(f"window_skip itself is of type {type(window_skip)}")
-        self.logger.debug(
-            f"After window_skip addition  cur_time is {cur_time} of type {type(cur_time)}"
-        )
+        # self.logger.debug(
+        #     f"window_skip ({window_skip}) itself is of type {type(window_skip)}"
+        # )
+        # self.logger.debug(
+        #     f"After window_skip addition  cur_time is {cur_time} of type {type(cur_time)}"
+        # )
         self.cur_state.time_point = cur_time
         # Onbserve after the rest
         window_length = clamp(
@@ -99,9 +101,9 @@ class SamplingEnvironment:
         )
 
         ### ✨ Time to observe (take a step)
-        self.logger.debug(
-            f"Sampling about to take place at current time {cur_time} (of type {type(cur_time)}) with window lenght {window_length}"
-        )
+        # self.logger.debug(
+        #     f"Sampling about to take place at current time {cur_time} (of type {type(cur_time)}) with window lenght {window_length}"
+        # )
         # TODO: Ensure we can remove window_skipo later, its not being used already
         new_samples = self.sampler.sample(cur_time, -1, window_length)
         if len(new_samples) >= 0:
@@ -113,7 +115,7 @@ class SamplingEnvironment:
             new_samples
         )
 
-        self.logger.debug("In preparation to go into State")
+        # self.logger.debug("In preparation to go into State")
         # Update the state to new observations
         new_state = State(
             # Time point at which next step will start
@@ -123,21 +125,21 @@ class SamplingEnvironment:
             observations=arraylike_features,
         )
 
-        self.logger.debug(f"They look like: {new_state.observations}")
+        # self.logger.debug(f"They look like: {new_state.observations}")
 
         return_reward = self.reward_calculator.calculate(
             features=arraylike_features, ground_truths=labels
         )
 
-        self.logger.debug(
-            f"We are working with sampled state of shape {new_state.observations.shape}"
-        )
+        # self.logger.debug(
+        #     f"We are working with sampled state of shape {new_state.observations.shape}"
+        # )
 
         ### Update new state
         self.cur_state = new_state
-        self.logger.debug(
-            f"Final obtained state of type {type(new_state.observations)} is of size {len(new_state.observations)} "
-        )
+        # self.logger.debug(
+        #     f"Final obtained state of type {type(new_state.observations)} is of size {len(new_state.observations)} "
+        # )
 
         return self.cur_state, return_reward
 
@@ -163,7 +165,7 @@ class SamplingEnvironment:
             self.cur_state.window_length,
         )
 
-        self.logger.info(f"We get a sample that looks like")
+        # self.logger.debug(f"Sampled for SamplingEnvironment reset")
 
         arraylike_features, label = self.feature_factory.make_feature_and_label(samples)
 
@@ -196,33 +198,33 @@ class SamplingEnvironment:
         Returns nothing but sets a new `self.cur_state`
         """
 
-        self.logger.debug("Initializing triad")
+        # self.logger.debug("Initializing triad")
         min_time, max_time = (
             self.sampler.init_time,
             self.sampler.fin_time,
         )
 
-        self.logger.debug("Restarting the environment")
+        # self.logger.debug("Restarting the environment")
         assert min_time != max_time, "Cap Reader not initialized Properly"
 
         # Starting Time
         if starting_time == None:
-            self.logger.debug(f"Unset, setting")
+            # self.logger.debug(f"Unset, setting")
             self.cur_state.time_point = random.uniform(
                 min_time,
                 min_time + (max_time - min_time) * self.DAY_RIGHT_MARGIN,
             )
-            self.logger.debug(f"Unset, ensuring {type(self.cur_state.time_point)}")
+            # self.logger.debug(f"Unset, ensuring {type(self.cur_state.time_point)}")
         else:
             assert within(
                 starting_time, min_time, max_time * self.DAY_RIGHT_MARGIN
             ), f"Stating time {starting_time} out of range [{min_time},{max_time}]"
-            self.logger.debug(f"Preset, setting")
+            # self.logger.debug(f"Preset, setting")
             self.cur_state.time_point = starting_time
 
-        self.logger.debug(
-            f"Initialized starting_time to {self.cur_state.time_point} with type {type(self.cur_state.time_point)}"
-        )
+        # self.logger.debug(
+        #     f"Initialized starting_time to {self.cur_state.time_point} with type {type(self.cur_state.time_point)}"
+        # )
         # Winskip
         if winskip == None:
             self.cur_state.window_skip = random.uniform(
