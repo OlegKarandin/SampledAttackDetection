@@ -6,6 +6,8 @@ but with a smaller file contianing only the necessary data.
 import logging
 from time import time
 
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from scapy.all import Packet, PcapReader, rdpcap, wrpcap
 from scapy.plist import PacketList
@@ -15,10 +17,13 @@ from tqdm import tqdm
 # from networking.readers.reader
 # from sampleddetection.readers import CSVPacketReader
 # from sampleddetection.samplers.window_sampler import DynamicWindowSampler
-from sampleddetection.statistics.window_statistics import get_flows
+# from sampleddetection.statistics.window_statistics import get_flows
 
 logger = logging.getLogger("MAIN")
 logger.setLevel(logging.INFO)
+import matplotlib.ticker as ticker
+from matplotlib.ticker import LogFormatterSciNotation
+
 logger.addHandler(logging.StreamHandler())
 from argparse import ArgumentParser
 
@@ -29,7 +34,10 @@ import debugpy
 
 def argies():
     ap = ArgumentParser()
-    ap.add_argument("--src_file", default="./bigdata/Wednesday.csv")
+    ap.add_argument(
+        "--src_file",
+        default="./data/MachineLearningCVE/Wednesday-workingHours.pcap_ISCX.csv",
+    )
     ap.add_argument(
         "--window_skip", default=2.0, help="The amount of time between observations."
     )
@@ -139,6 +147,67 @@ def single_flow_stats_pcap(pcap_file, src_ip, dst_ip, src_port, dst_port):
     wrpcap("./bigdata/specific_instances/" + tuple_str + ".pcap", filtered_packets)
 
 
+def distribution_of_iat_across_all_packets(csv_path: str):
+    df = pd.read_csv(csv_path)
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
+    df.dropna(inplace=True)
+    df.drop_duplicates(inplace=True)
+    # Show column names
+    # Just collect and plot
+    iat: np.ndarray = df[" Flow IAT Mean"].values  # type: ignore
+    iat = iat[np.isfinite(iat) & (iat >= 0)]
+    dur: np.ndarray = df[" Flow Duration"].values  # type: ignore
+    dur = dur[np.isfinite(dur) & (dur >= 0)]
+    packets_pers: np.ndarray = df[" Flow Packets/s"].values  # type: ignore
+    packets_pers = packets_pers[np.isfinite(packets_pers) & (packets_pers >= 0)]
+
+    # Now plot them in  3 equidistant (triangle) subplots. All being histograms
+    fig, axs = plt.subplots(3, 1, figsize=(10, 10))
+    minx, maxx = (np.nanmin(iat), np.nanmax(iat))
+    minlx, maxlx = (np.log10(minx), np.log10(maxx))
+    print(f"Limits for Flow Mean IAT are [{minx},{maxx}]")
+    axs[0].hist(
+        iat,
+        bins=[b for b in np.logspace(minlx - 1e-3, maxlx, 100)],
+        color="blue",
+        alpha=0.7,
+    )
+    axs[0].set_xscale("log")
+    axs[0].set_yscale("log")
+    axs[0].set_xticks([i for i in np.logspace(minlx, maxlx, 10)])
+    axs[0].set_xticklabels([f"{i:.1e}" for i in np.logspace(minlx, maxlx, 10)])
+    axs[0].set_title("Flow IAT Mean")
+
+    minx, maxx = (np.nanmin(dur), np.nanmax(dur))
+    print(f"Limits for Flow Duration are [{minx},{maxx}]")
+    axs[1].hist(
+        dur,
+        bins=[b for b in np.logspace(minlx - 1e-3, maxlx, 100)],
+        color="green",
+        alpha=0.7,
+    )
+    axs[1].set_title("Flow Duration")
+    axs[1].set_yscale("log")
+    axs[1].set_xscale("log")
+    axs[1].set_xticks([i for i in np.logspace(minlx, maxlx, 10)])
+    axs[1].set_xticklabels([f"{i:.1e}" for i in np.logspace(minlx, maxlx, 10)])
+
+    minx, maxx = (np.nanmin(packets_pers), np.nanmax(packets_pers))
+    print(f"Limits for Flow Packets/s are [{minx},{maxx}]")
+    axs[2].hist(
+        packets_pers,
+        bins=[b for b in np.logspace(minlx - 1e-3, maxlx, 100)],
+        color="red",
+        alpha=0.7,
+    )
+    axs[2].set_title("Flow Packets/s")
+    axs[2].set_yscale("log")
+    axs[2].set_xscale("log")
+    axs[2].set_xticks([i for i in np.logspace(minlx, maxlx, 10)])
+    axs[2].set_xticklabels([f"{i:.1e}" for i in np.logspace(minlx, maxlx, 10)])
+    plt.show()
+
+
 def calc_total_bytes(csv_reader: pd.DataFrame):
     total_bytes = csv_reader["packet_length"]
     summation = total_bytes.sum()
@@ -155,19 +224,21 @@ if __name__ == "__main__":
         debugpy.wait_for_client()
         logger.info("Client connected. Proceeding with debug session.")
 
-    if False:
-        single_flow_stats_pcap(
-            "./bigdata/Wednesday-WorkingHours.pcap",
-            "40.83.143.209",
-            "192.168.10.14",
-            443,
-            49461,
-        )
-    else:
-        single_flow_stats(
-            "./bigdata/Wednesday.csv",
-            "40.83.143.209",
-            "192.168.10.14",
-            443,
-            49461,
-        )
+    distribution_of_iat_across_all_packets(args.src_file)
+    # old tests
+    # if False:
+    #     single_flow_stats_pcap(
+    #         "./bigdata/Wednesday-WorkingHours.pcap",
+    #         "40.83.143.209",
+    #         "192.168.10.14",
+    #         443,
+    #         49461,
+    #     )
+    # else:
+    #     single_flow_stats(
+    #         "./bigdata/Wednesday.csv",
+    #         "40.83.143.209",
+    #         "192.168.10.14",
+    #         443,
+    #         49461,
+    #     )
