@@ -11,6 +11,9 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import cross_val_score, train_test_split
 from xgboost import XGBClassifier
 
+from sampleddetection.util.data import train_multinary_classier_XGBoost
+from sampleddetection.utils import pretty_print
+
 # import matplotlib.pyplot as plt
 
 
@@ -124,9 +127,9 @@ def train_classifier_XGBoost(X_train, y_train):
     return xgb_cl"""
 
 
-def read_DDOS_dataset(selected_features):
+def read_DDOS_dataset(selected_features, binary=True):
     df = pd.read_csv(
-        "../data/MachineLearningCVE/Wednesday-workingHours.pcap_ISCX.csv",
+        "./data/MachineLearningCVE/Wednesday-workingHours.pcap_ISCX.csv",
         delimiter=",",
     )
     new_cols = {col: col.strip() for col in df.columns}
@@ -155,9 +158,15 @@ def read_DDOS_dataset(selected_features):
     relabelled_df = df[df["Label"].isin(labels_to_keep)]
 
     # set labels to 0/1
-    temp_dict = {att_name: 1 for att_name in attacks_to_detect}
-    temp_dict["BENIGN"] = 0
-    relabelled_df.replace({"Label": temp_dict}, inplace=True)
+    rel_dict = {}
+    if binary:
+        rel_dict = {att_name: 1 for att_name in attacks_to_detect}
+        rel_dict["BENIGN"] = 0
+        relabelled_df.replace({"Label": rel_dict}, inplace=True)
+    else:
+        rel_dict = {att_name: i + 1 for i, att_name in enumerate(attacks_to_detect)}
+        rel_dict["BENIGN"] = 0
+        relabelled_df.replace({"Label": rel_dict}, inplace=True)
 
     # Reset the index of the DataFrame after filtering
     relabelled_df = relabelled_df.reset_index(drop=True)
@@ -165,9 +174,10 @@ def read_DDOS_dataset(selected_features):
     # balance the dataset
     balanced_df = pd.DataFrame()
 
-    samples_per_class = 10000
-    for label in [0, 1]:
-        class_df = relabelled_df[relabelled_df["Label"] == label]
+    samples_per_class = 5000
+    for k, v in rel_dict.items():
+        print(f"Going through {k}:{v}")
+        class_df = relabelled_df[relabelled_df["Label"] == v]
         random_indices = np.random.choice(
             class_df.index, samples_per_class, replace=False
         )
@@ -216,17 +226,18 @@ if __name__ == "__main__":
         "Packet Length Mean",
     ]
 
-    df_ddos = read_DDOS_dataset(features)
+    df_ddos = read_DDOS_dataset(features, binary=False)
 
     X_train, X_test, y_train, y_test = train_test_split(
         df_ddos.drop(columns=["Label"]), df_ddos["Label"], test_size=0.3
     )
 
-    clf = train_classifier_XGBoost(X_train, y_train)
+    clf, metrics = train_multinary_classier_XGBoost(X_train, y_train, X_test, y_test)
     # clf = train_classifier_RF(X_train, y_train)
 
-    accuracy_metrics(y_test, clf.predict(X_test))
+    print(f"Evaluation of model resulted in: {pretty_print(metrics)}")
+    # accuracy_metrics(y_test, clf.predict(X_test))
 
     # Save the model for later
     print("Saving Model")
-    joblib.dump(clf, "detection_model.joblib")
+    joblib.dump(clf, "multinary_detection_model.joblib")
