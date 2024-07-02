@@ -5,14 +5,17 @@ from pathlib import Path
 from time import time
 from typing import List, Sequence, Tuple, Union
 
+import numpy as np
 import pandas as pd
 from scapy.all import Packet, PcapReader, rdpcap, wrpcap
 from scapy.plist import PacketList
 from tqdm import tqdm
 
+from networking.common_lingo import ATTACK_TO_STRING, STRING_TO_ATTACKS, Attack
 from networking.datastructures.packet_like import CSVPacket
 from sampleddetection.datastructures import CSVSample
 from sampleddetection.readers import AbstractTimeSeriesReader
+from sampleddetection.samplers import binary_search
 from sampleddetection.utils import setup_logger
 
 MAX_MEM = 15e9  # GB This is as mcuh as we want in ram at once
@@ -104,18 +107,18 @@ class NetCSVReader(AbstractTimeSeriesReader):
             Attack.SLOWLORIS: Attack.SLOWLORIS.value,
             Attack.SLOWHTTPTEST: Attack.SLOWHTTPTEST.value,
         }
-        bt_np = np.array(bins_times)
-        bl_np = np.array(bins_labels, dtype=np.int8)
-        bl_idxs = [bl_np[np.where(bl_np == l)] for l in labels.values()]
-        bts = [bt_np[np.where(bl_np == l)] for l in labels.values()]
-
-        fig = plt.figure(figsize=(8, 19))
-        plt.tight_layout()
-        for i, l in enumerate(labels.keys()):
-            print(f"Size of bts[{l}] is {len(bts[i])}")
-            plt.scatter(bts[i], np.full_like(bts[i], 1), label=ATTACK_TO_STRING[l])
-        plt.legend()
-        plt.show()
+        # # Debug
+        # bt_np = np.array(bins_times)
+        # bl_np = np.array(bins_labels, dtype=np.int8)
+        # bl_idxs = [bl_np[np.where(bl_np == l)] for l in labels.values()]
+        # bts = [bt_np[np.where(bl_np == l)] for l in labels.values()]
+        # fig = plt.figure(figsize=(8, 19))
+        # plt.tight_layout()
+        # for i, l in enumerate(labels.keys()):
+        #     print(f"Size of bts[{l}] is {len(bts[i])}")
+        #     plt.scatter(bts[i], np.full_like(bts[i], 1), label=ATTACK_TO_STRING[l])
+        # plt.legend()
+        # plt.show()
         return bins_times, bins_labels
 
     @property

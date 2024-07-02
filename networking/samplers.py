@@ -70,18 +70,18 @@ class WeightedSampler(DynamicWindowSampler):
             bins_labels.append(label)
 
         # And lets plot it as a histogram just for funsies
-        bt_np = np.array(bins_times)
-        bl_np = np.array(bins_labels, dtype=np.int8)
-        bl_idxs = [bl_np[np.where(bl_np == l)] for l in labels_map.values()]
-        bts = [bt_np[np.where(bl_np == l)] for l in labels_map.values()]
-
-        fig = plt.figure(figsize=(8, 19))
-        plt.tight_layout()
-        for i, l in enumerate(labels_map.keys()):
-            print(f"Size of bts[{l}] is {len(bts[i])}")
-            plt.scatter(bts[i], np.full_like(bts[i], 1), label=ATTACK_TO_STRING[l])
-        plt.legend()
-        plt.show()
+        # bt_np = np.array(bins_times)
+        # bl_np = np.array(bins_labels, dtype=np.int8)
+        # bl_idxs = [bl_np[np.where(bl_np == l)] for l in labels_map.values()]
+        # bts = [bt_np[np.where(bl_np == l)] for l in labels_map.values()]
+        #
+        # fig = plt.figure(figsize=(8, 19))
+        # plt.tight_layout()
+        # for i, l in enumerate(labels_map.keys()):
+        #     print(f"Size of bts[{l}] is {len(bts[i])}")
+        #     plt.scatter(bts[i], np.full_like(bts[i], 1), label=ATTACK_TO_STRING[l])
+        # plt.legend()
+        # plt.show()
         return bins_times, bins_labels
 
     def sample(

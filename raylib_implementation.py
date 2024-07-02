@@ -306,12 +306,13 @@ def env_wrapper(env) -> gym.Env:
     # Use the random forest creation
     reward_calculator = RandForRewardCalculator(args.pretrained_ranfor)
 
-    # TODO: we have to check this NoReplacementSampler is not too slow
-    data_reader = ray.get(csv_reader_ref)
     # CHECK: Do we want to use NoReplacementSampler or DynamicSampler?
     # Remember that NoReplacementSampler has quite the overhead
     # meta_sampler = NoReplacementSampler(data_reader, sample_factory)
-    sampler = DynamicWindowSampler(data_reader, args.sampling_budget)
+    # TODO: we have to check this NoReplacementSampler is not too slow
+    # data_reader = ray.get(csv_reader_ref)
+    # sampler = DynamicWindowSampler(data_reader, args.sampling_budget)
+    sampler = ray.get(global_sampler_ref)
 
     sampenv = SamplingEnvironment(
         sampler,
@@ -389,7 +390,10 @@ if __name__ == "__main__":
     # Make shared CSVReader
     csv_path = Path(args.csv_path_str)
     csv_reader = NetCSVReader(csv_path)
-    csv_reader_ref = ray.put(csv_reader)
+
+    global_sampler = DynamicWindowSampler(csv_reader, args.sampling_budget)
+    global_sampler_ref = ray.put(global_sampler)
+    # csv_reader_ref = ray.put(csv_reader)
 
     # Make the environment
     print("Make the environment")
