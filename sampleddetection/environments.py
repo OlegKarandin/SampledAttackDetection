@@ -50,7 +50,7 @@ class SamplingEnvironment:
         # CHECK: that this reset call is even necessary
         self.reset()
 
-    def step(self, action: Action) -> Tuple[State, float]:
+    def step(self, action: Action) -> Tuple[State, float, dict]:
         """
         Core functionality as well as data processing b4
 
@@ -140,8 +140,9 @@ class SamplingEnvironment:
         # self.logger.debug(
         #     f"Final obtained state of type {type(new_state.observations)} is of size {len(new_state.observations)} "
         # )
+        # TODO: we might want to expand it with more stuff later
 
-        return self.cur_state, return_reward
+        return self.cur_state, return_reward, extra_obs
 
     # def _step(self, cur_time, winskip, winlen) -> Tuple[State, float]:
     #
