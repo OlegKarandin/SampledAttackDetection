@@ -7,7 +7,7 @@ import numpy as np
 from sampleddetection.datastructures import Action, State
 from sampleddetection.reward_signals import RewardCalculatorLike
 from sampleddetection.samplers import FeatureFactory, TSSampler
-from sampleddetection.utils import clamp, setup_logger, within
+from sampleddetection.utils import clamp, pretty_print, setup_logger, within
 
 
 class SamplingEnvironment:

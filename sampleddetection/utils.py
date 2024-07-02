@@ -19,6 +19,18 @@ FLAGS_TO_VAL = {
 }
 
 
+def pretty_print(dicto: dict, nesting_spacing=2) -> str:
+    assert nesting_spacing >= 2, "Provice spacing of atleast 2 to pretty_print"
+    pretty_str = ""
+    for k, v in dicto.items():
+        pretty_str += f"{k} : "
+        if isinstance(v, dict):
+            pretty_str += "\n" + pretty_print(v, nesting_spacing + 2)
+        else:
+            pretty_str += f"{v}\n"
+    return pretty_str
+
+
 def keychain_retrieve(nested_dict, keys) -> Union[None, Any]:
     current_dict_or_finval = nested_dict
     counter = 1
