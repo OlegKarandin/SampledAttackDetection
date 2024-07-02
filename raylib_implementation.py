@@ -331,16 +331,16 @@ if __name__ == "__main__":
         )
 
     # Define which labels one expects on the given dataset
-    attacks_to_detect = [
-        Attack.SLOWLORIS,
-        Attack.SLOWHTTPTEST,
+    attacks_to_detect = (
         Attack.HULK,
         Attack.GOLDENEYE,
+        Attack.SLOWLORIS,
+        Attack.SLOWHTTPTEST,
         # Attack.HEARTBLEED. # Takes too long find in dataset.
-    ]
+    )
 
     # Columns to Normalize
-    columns_to_normalize = [
+    columns_to_normalize = (
         "fwd_pkt_len_max",
         "fwd_pkt_len_min",
         "fwd_pkt_len_mean",
@@ -361,7 +361,7 @@ if __name__ == "__main__":
         "pkt_len_min",
         "pkt_len_max",
         "pkt_len_mean",
-    ]
+    )
     # Make shared CSVReader
     csv_path = Path(args.csv_path_str)
     csv_reader = NetCSVReader(csv_path)
