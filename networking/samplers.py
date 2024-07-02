@@ -40,6 +40,14 @@ class WeightedSampler(DynamicWindowSampler):
         lidx = 0
         num_samples_g = 1000
 
+        labels_map = {
+            Attack.BENIGN: Attack.BENIGN.value,
+            Attack.HULK: Attack.HULK.value,
+            Attack.GOLDENEYE: Attack.GOLDENEYE.value,
+            Attack.SLOWLORIS: Attack.SLOWLORIS.value,
+            Attack.SLOWHTTPTEST: Attack.SLOWHTTPTEST.value,
+        }
+
         bins_times = []
         bins_labels = []
         for i, b in enumerate(bins):
@@ -52,31 +60,24 @@ class WeightedSampler(DynamicWindowSampler):
             # Just grab the first num_samples packets here and uset them to decide
             num_samples = min(num_samples_g, ridx - lidx)
             packs = self.timeseries_rdr[lidx : lidx + num_samples]
-            label = Attack.BENIGN  # By default
-            if sum(packs == ATTACK_TO_STRING[Attack.BENIGN]) != num_samples:
-                label = packs[packs != ATTACK_TO_STRING[Attack.BENIGN]].iloc[0]
-                label = STRING_TO_ATTACKS[label]
+            packs_lbls = np.array([p.label.value for p in packs], dtype=np.int8)
+            label = Attack.BENIGN.value  # By default
+            if sum(packs_lbls == Attack.BENIGN.value) != num_samples:
+                label = packs_lbls[packs_lbls != Attack.BENIGN.value][0]
                 print("|", end="")
 
             lidx = ridx
-            bins_labels.append(label.value)
+            bins_labels.append(label)
 
         # And lets plot it as a histogram just for funsies
-        labels = {
-            Attack.BENIGN: Attack.BENIGN.value,
-            Attack.HULK: Attack.HULK.value,
-            Attack.GOLDENEYE: Attack.GOLDENEYE.value,
-            Attack.SLOWLORIS: Attack.SLOWLORIS.value,
-            Attack.SLOWHTTPTEST: Attack.SLOWHTTPTEST.value,
-        }
         bt_np = np.array(bins_times)
         bl_np = np.array(bins_labels, dtype=np.int8)
-        bl_idxs = [bl_np[np.where(bl_np == l)] for l in labels.values()]
-        bts = [bt_np[np.where(bl_np == l)] for l in labels.values()]
+        bl_idxs = [bl_np[np.where(bl_np == l)] for l in labels_map.values()]
+        bts = [bt_np[np.where(bl_np == l)] for l in labels_map.values()]
 
         fig = plt.figure(figsize=(8, 19))
         plt.tight_layout()
-        for i, l in enumerate(labels.keys()):
+        for i, l in enumerate(labels_map.keys()):
             print(f"Size of bts[{l}] is {len(bts[i])}")
             plt.scatter(bts[i], np.full_like(bts[i], 1), label=ATTACK_TO_STRING[l])
         plt.legend()
