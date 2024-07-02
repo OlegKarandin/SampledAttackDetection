@@ -13,6 +13,7 @@ from time import time
 from typing import Any, Dict, Optional, Union
 
 import gymnasium as gym
+import joblib as joblib
 import numpy as np
 import ray
 import torch
@@ -30,7 +31,6 @@ from ray.rllib.policy.policy import Policy
 from ray.rllib.policy.sample_batch import MultiAgentBatch, SampleBatch
 from ray.rllib.utils.metrics.metrics_logger import MetricsLogger
 from ray.rllib.utils.typing import EpisodeType, PolicyID
-from ray.tune.logger import pretty_print
 from ray.tune.registry import register_env
 from wandb.sdk.wandb_run import Run
 
@@ -43,7 +43,10 @@ from networking.downstream_tasks.deepnets import Classifier
 from networking.netfactories import NetworkFeatureFactory, NetworkSampleFactory
 from networking.readers import NetCSVReader
 from sampleddetection.datastructures import Action
-from sampleddetection.reward_signals import DNN_RewardCalculator
+from sampleddetection.reward_signals import (
+    DNN_RewardCalculator,
+    RandForRewardCalculator,
+)
 from sampleddetection.utils import (
     clear_screen,
     get_keys_of_interest,
@@ -114,6 +117,13 @@ def argsies():
         default=420,
         type=int,
         help="Seed for random generators",
+    )
+    # Random forst
+    ap.add_argument(
+        "--pretrained_ranfor",
+        default="./models/multinary_detection_model.joblib",
+        type=str,
+        help="Pretrained random forest model",
     )
 
     # Prelimns
@@ -284,12 +294,15 @@ def env_wrapper(env) -> gym.Env:
     # assert csv_path.exists(), "csv path provided does not exist"
     # data_reader = CSVReader(csv_path)
 
-    # Create the downstream classidication learner
-    classifier = Classifier(
-        input_size=num_features, output_size=len(attacks_to_detect) + 1
-    )
-    # Create reward calculator to use
-    reward_calculator = DNN_RewardCalculator(classifier)
+    # # Create the downstream classidication learner
+    # classifier = Classifier(
+    #     input_size=num_features, output_size=len(attacks_to_detect) + 1
+    # )
+    # # Create reward calculator to use
+    # reward_calculator = DNN_RewardCalculator(classifier)
+
+    # Use the random forest creation
+    reward_calculator = RandForRewardCalculator(args.pretrained_ranfor)
 
     print("Trying to make NETENVE")
     env = gym.make(
