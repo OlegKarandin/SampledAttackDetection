@@ -67,22 +67,25 @@ class DNN_RewardCalculator(RewardCalculatorLike):
         # Some categorigal loss here
         # losses = self.criterion(predictions, retrieved_truths)
         self.logger.debug(
-            f"Criterion: \n\tinput:{predictions}\n\touttput:{grounded_truths}"
+            f"Criterion: \n\tinput:{F.softmax(predictions)}\n\ground truth:{grounded_truths}"
         )
         losses = self.criterion(predictions, grounded_truths)
         self.logger.debug(f"Resulting losses {losses}")
 
         loss_mean = losses.mean() * (-1)
-        loss_mean = loss_mean * -1  # Convert to reward
+        self.logger.debug(f"Mening mean reward is {loss_mean}")
         # Reinforcement Learning need not gradients.
 
         # Do SGD over the loss so we can learn to better classify.
-        self.estimation_signal.zero_grad()
-        loss_mean.backward()
-        self.optim.step()
+        # self.estimation_signal.zero_grad()
+        # loss_mean.backward()
+        # self.optim.step()
         # CHECK: that we are doing sgd well here.
 
         return loss_mean.item()
+
+    def learn(self, features: np.ndarray, ground_truths: np.ndarray):
+        pass  # TODO:
 
 
 # TODO: One might imagine a milar reward calculator for random forests/trees
