@@ -1,3 +1,4 @@
+import datetime
 import random
 from logging import DEBUG
 from typing import Any, Sequence, Tuple, Union
@@ -114,6 +115,7 @@ class SamplingEnvironment:
         arraylike_features, labels = self.feature_factory.make_feature_and_label(
             new_samples
         )
+        self.logger.debug(f"We got {len(labels)} samples")
 
         # self.logger.debug("In preparation to go into State")
         # Update the state to new observations
@@ -125,8 +127,19 @@ class SamplingEnvironment:
             observations=arraylike_features,
         )
 
-        # self.logger.debug(f"They look like: {new_state.observations}")
+        ### START: Debug section
+        # Get statistics of iat between between first and last sampling points
+        # Should give us an idea of where our algorithm resides to be.
+        extra_obs = self.sampler.window_statistics(cur_time, window_skip, window_length)
 
+        # Show current staste
+        _debug_ts = datetime.datetime.fromtimestamp(cur_time)
+        _debug_ts_str = _debug_ts.strftime("%H:%M:%S")
+        self.logger.debug(
+            f"Our current window_skip {window_skip} and window length {window_length} for timepoint {_debug_ts_str}"
+        )
+
+        ### END: Debug section
         return_reward = self.reward_calculator.calculate(
             features=arraylike_features, ground_truths=labels
         )

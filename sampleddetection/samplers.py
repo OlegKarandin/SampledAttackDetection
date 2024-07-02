@@ -1,4 +1,5 @@
 import logging
+import time
 from abc import ABC, abstractmethod
 from math import ceil
 from typing import Any, Generic, List, Sequence, Tuple, TypeVar
@@ -22,6 +23,12 @@ class TSSampler(ABC):
         window_length: float,
         initial_precise: bool = False,
     ) -> Sequence[Any]:
+        pass
+
+    @abstractmethod
+    def window_statistics(
+        self, starting_time: float, win_skip: float, win_len: float
+    ) -> dict:
         pass
 
     @property
@@ -139,6 +146,40 @@ class DynamicWindowSampler(TSSampler):
             _stopping_time = _starting_time + window_length
 
         return samples
+
+    # TODO: I doubt we are actually going to be using this
+    def window_statistics(
+        self, starting_time: float, win_skip: float, win_len: float
+    ) -> dict:
+
+        st_time = time.time()
+        samples = []
+        end_time = starting_time + (win_skip + win_len) * self.sampling_budget
+        start_idx = binary_search(self.timeseries_rdr, starting_time)
+        end_idx = binary_search(self.timeseries_rdr, end_time)
+
+        self.logger.debug(
+            f"At start time {starting_time} we are given a win_skip:{win_skip} and wind_len {win_len}"
+        )
+        self.logger.debug(
+            f"We are pottentially going through {end_idx-start_idx} ({start_idx}->{end_idx}) samples"
+        )
+        all_samples = self.timeseries_rdr[start_idx:end_idx]
+
+        ### Calculate Statistics
+        ## We will bravely assume that we are dealing with `PacketLike` here
+        times = np.array([s.time for s in all_samples])
+        iats = times[1:] - times[:-1]
+
+        stats = {
+            "mean_iat": iats.mean() if len(iats) != 0 else 0,
+            "min_iat": iats.min() if len(iats) != 0 else 0,
+            "max_iat": iats.max() if len(iats) != 0 else 0,
+        }
+        self.logger.debug(
+            f"window_statiscs took {time.time() - st_time} with {len(samples)} samples between st_time:{st_time} to end_time:{end_time}"
+        )
+        return stats
 
 
 class NoReplacementSampler(DynamicWindowSampler):

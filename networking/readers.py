@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from math import ceil
 from pathlib import Path
 from time import time
-from typing import List, Tuple, Union
+from typing import List, Sequence, Tuple, Union
 
 import pandas as pd
 from scapy.all import Packet, PcapReader, rdpcap, wrpcap
