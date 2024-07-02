@@ -42,6 +42,7 @@ from networking.common_lingo import Attack
 from networking.downstream_tasks.deepnets import Classifier
 from networking.netfactories import NetworkFeatureFactory, NetworkSampleFactory
 from networking.readers import NetCSVReader
+from networking.samplers import WeightedSampler
 from sampleddetection.datastructures import Action
 from sampleddetection.environments import SamplingEnvironment
 from sampleddetection.reward_signals import (
@@ -126,6 +127,12 @@ def argsies():
         default="./models/multinary_detection_model.joblib",
         type=str,
         help="Pretrained random forest model",
+    )
+    ap.add_argument(
+        "--weighted_bins_num",
+        default=1600,
+        type=int,
+        help="Bins for the weighted algorithm",
     )
 
     # Prelimns
@@ -309,9 +316,6 @@ def env_wrapper(env) -> gym.Env:
     # CHECK: Do we want to use NoReplacementSampler or DynamicSampler?
     # Remember that NoReplacementSampler has quite the overhead
     # meta_sampler = NoReplacementSampler(data_reader, sample_factory)
-    # TODO: we have to check this NoReplacementSampler is not too slow
-    # data_reader = ray.get(csv_reader_ref)
-    # sampler = DynamicWindowSampler(data_reader, args.sampling_budget)
     sampler = ray.get(global_sampler_ref)
 
     sampenv = SamplingEnvironment(
@@ -391,7 +395,9 @@ if __name__ == "__main__":
     csv_path = Path(args.csv_path_str)
     csv_reader = NetCSVReader(csv_path)
 
-    global_sampler = DynamicWindowSampler(csv_reader, args.sampling_budget)
+    global_sampler = WeightedSampler(
+        csv_reader, args.sampling_budget, args.weighted_bins_num
+    )
     global_sampler_ref = ray.put(global_sampler)
     # csv_reader_ref = ray.put(csv_reader)
 

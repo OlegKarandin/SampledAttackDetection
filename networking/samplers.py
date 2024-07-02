@@ -1,3 +1,4 @@
+import pdb
 from typing import Any, Sequence
 
 import matplotlib.pyplot as plt
@@ -24,6 +25,7 @@ class WeightedSampler(DynamicWindowSampler):
     ):
         self.sampling_regions = []
         self.sr_weights = []
+        self.timeseries_rdr = timeseries_rdr
         self._generate_regions(num_bins)
         super().__init__(
             timeseries_rdr,
@@ -35,7 +37,6 @@ class WeightedSampler(DynamicWindowSampler):
         # Calculate all divisions
         fin_time = self.timeseries_rdr.fin_time
         init_time = self.timeseries_rdr.init_time
-        tot_time = fin_time - init_time
         bins = np.linspace(init_time, fin_time, num_bins)
         lidx = 0
         num_samples_g = 1000
@@ -69,6 +70,15 @@ class WeightedSampler(DynamicWindowSampler):
             lidx = ridx
             bins_labels.append(label)
 
+        # Distribute sampling weights
+        bl_np = np.array(bins_labels, dtype=np.int8)
+        uni_weight = 1 / len(labels_map)
+        perunit_weigth = np.zeros_like(bl_np, dtype=np.float32)
+        for l in labels_map.values():
+            idxs = np.where(bl_np == l)[0]
+            perunit_weigth[idxs] = uni_weight / len(idxs)
+        pdb.set_trace()
+
         # And lets plot it as a histogram just for funsies
         # bt_np = np.array(bins_times)
         # bl_np = np.array(bins_labels, dtype=np.int8)
@@ -82,7 +92,7 @@ class WeightedSampler(DynamicWindowSampler):
         #     plt.scatter(bts[i], np.full_like(bts[i], 1), label=ATTACK_TO_STRING[l])
         # plt.legend()
         # plt.show()
-        return bins_times, bins_labels
+        return bins_times, bins_labels, perunit_weigth
 
     def sample(
         self,
@@ -94,6 +104,7 @@ class WeightedSampler(DynamicWindowSampler):
     ) -> Sequence[Any]:
         # We first make sure that this is the first sample
         assert "fist_sample" in kwargs
+        # We will first chose from one of
 
         return super().sample(
             starting_time, window_skip, window_length, initial_precise
