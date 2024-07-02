@@ -68,6 +68,56 @@ class NetCSVReader(AbstractTimeSeriesReader):
     def getTimestamp(self, idx):
         return self.csv_df.iloc[idx]["timestamp"]
 
+    def calculate_bins(self, num_bins) -> Tuple[Sequence[float], Sequence[Attack]]:
+        # Calculate all divisions
+        tot_time = self.last_sniff_time - self.first_sniff_time
+        bins = np.linspace(self.first_sniff_time, self.last_sniff_time, num_bins)
+        lidx = 0
+        num_samples_g = 1000
+
+        bins_times = []
+        bins_labels = []
+        for i, b in enumerate(bins):
+            if i == 0:
+                continue
+            # Find the timestamp
+            ridx = binary_search(self, b)
+            bins_times.append(b)
+
+            # Just grab the first num_samples packets here and uset them to decide
+            num_samples = min(num_samples_g, ridx - lidx)
+            packs = self.csv_df["label"].iloc[lidx : lidx + num_samples]
+            label = Attack.BENIGN  # By default
+            if sum(packs == ATTACK_TO_STRING[Attack.BENIGN]) != num_samples:
+                label = packs[packs != ATTACK_TO_STRING[Attack.BENIGN]].iloc[0]
+                label = STRING_TO_ATTACKS[label]
+                print("|", end="")
+
+            lidx = ridx
+            bins_labels.append(label.value)
+
+        # And lets plot it as a histogram just for funsies
+        labels = {
+            Attack.BENIGN: Attack.BENIGN.value,
+            Attack.HULK: Attack.HULK.value,
+            Attack.GOLDENEYE: Attack.GOLDENEYE.value,
+            Attack.SLOWLORIS: Attack.SLOWLORIS.value,
+            Attack.SLOWHTTPTEST: Attack.SLOWHTTPTEST.value,
+        }
+        bt_np = np.array(bins_times)
+        bl_np = np.array(bins_labels, dtype=np.int8)
+        bl_idxs = [bl_np[np.where(bl_np == l)] for l in labels.values()]
+        bts = [bt_np[np.where(bl_np == l)] for l in labels.values()]
+
+        fig = plt.figure(figsize=(8, 19))
+        plt.tight_layout()
+        for i, l in enumerate(labels.keys()):
+            print(f"Size of bts[{l}] is {len(bts[i])}")
+            plt.scatter(bts[i], np.full_like(bts[i], 1), label=ATTACK_TO_STRING[l])
+        plt.legend()
+        plt.show()
+        return bins_times, bins_labels
+
     @property
     def init_time(self) -> float:
         return self.csv_df.iloc[0]["timestamp"]
