@@ -18,7 +18,6 @@ class WeightedSampler(DynamicWindowSampler):
         self,
         timeseries_rdr: AbstractTimeSeriesReader,
         # TOREM: Not really being used
-        specific_samplefactory: SampleFactory,  # TOREM: the reader can take on this complexity this is redundant.
         sampling_budget: int,
         num_bins: int,
         lowest_resolution: float = 1e-6,
@@ -28,7 +27,6 @@ class WeightedSampler(DynamicWindowSampler):
         self._generate_regions(num_bins)
         super().__init__(
             timeseries_rdr,
-            specific_samplefactory,
             sampling_budget,
             lowest_resolution,
         )

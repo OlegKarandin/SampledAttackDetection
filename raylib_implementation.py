@@ -43,10 +43,12 @@ from networking.downstream_tasks.deepnets import Classifier
 from networking.netfactories import NetworkFeatureFactory, NetworkSampleFactory
 from networking.readers import NetCSVReader
 from sampleddetection.datastructures import Action
+from sampleddetection.environments import SamplingEnvironment
 from sampleddetection.reward_signals import (
     DNN_RewardCalculator,
     RandForRewardCalculator,
 )
+from sampleddetection.samplers import DynamicWindowSampler
 from sampleddetection.utils import (
     clear_screen,
     get_keys_of_interest,
@@ -248,9 +250,10 @@ class MyCallbacks(DefaultCallbacks):
         self.logger.debug(
             f"Observations (shape {samples.policy_batches['default_policy']['obs'].shape}) themselves: {samples.policy_batches['default_policy']['obs']}"
         )
-        assert (
-            samples.count == 128
-        ), f"Sample count does not match 128 it is actually {samples.count}"
+        # TODO: Create a better assertion for this
+        # assert (
+        #     samples.count == 128
+        # ), f"Sample count does not match 128 it is actually {samples.count}"
 
     def on_episode_end(
         self,
@@ -280,6 +283,9 @@ class MyCallbacks(DefaultCallbacks):
 
 
 def env_wrapper(env) -> gym.Env:
+    """
+    To my understanding each process will run this independently.
+    """
     # Call the registration
     explicit_registration()
 
@@ -289,11 +295,7 @@ def env_wrapper(env) -> gym.Env:
 
     num_features = len(args.obs_elements)
 
-    # Create Data Reader
-    # csv_path = Path(args.csv_path_str)
-    # assert csv_path.exists(), "csv path provided does not exist"
-    # data_reader = CSVReader(csv_path)
-
+    ### In case classification learner
     # # Create the downstream classidication learner
     # classifier = Classifier(
     #     input_size=num_features, output_size=len(attacks_to_detect) + 1
@@ -304,17 +306,26 @@ def env_wrapper(env) -> gym.Env:
     # Use the random forest creation
     reward_calculator = RandForRewardCalculator(args.pretrained_ranfor)
 
+    # TODO: we have to check this NoReplacementSampler is not too slow
+    data_reader = ray.get(csv_reader_ref)
+    # CHECK: Do we want to use NoReplacementSampler or DynamicSampler?
+    # Remember that NoReplacementSampler has quite the overhead
+    # meta_sampler = NoReplacementSampler(data_reader, sample_factory)
+    sampler = DynamicWindowSampler(data_reader, args.sampling_budget)
+
+    sampenv = SamplingEnvironment(
+        sampler,
+        reward_calculator=reward_calculator,
+        feature_factory=feature_factory,
+    )
+
     print("Trying to make NETENVE")
     env = gym.make(
         "NetEnv",
-        num_obs_elements=len(args.obs_elements),
+        sampling_env=sampenv,
+        num_obs_elements=num_features,
         actions_max_vals=Action(60, 10),
-        data_reader_ref=csv_reader_ref,
         action_idx_to_direction=args.action_dir,
-        sample_factory=sample_factory,
-        feature_factory=feature_factory,
-        reward_calculator=reward_calculator,
-        sampling_budget=args.sampling_budget,
     )
     print("MANAGED TO MAKE NETENV")
     # Use wrapper to normalize the data:

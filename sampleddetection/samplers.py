@@ -77,7 +77,6 @@ class DynamicWindowSampler(TSSampler):
         self,
         timeseries_rdr: AbstractTimeSeriesReader,
         # TOREM: Not really being used
-        specific_samplefactory: SampleFactory,  # TOREM: the reader can take on this complexity this is redundant.
         sampling_budget: int,
         lowest_resolution: float = 1e-6,
     ):
@@ -186,10 +185,11 @@ class NoReplacementSampler(DynamicWindowSampler):
     def __init__(
         self,
         csvrdr: AbstractTimeSeriesReader,
+        sampling_budget: int,
         specific_sample_factory: SampleFactory,
         lowest_resolution: float = 1e-6,
     ):
-        super().__init__(csvrdr, specific_sample_factory, lowest_resolution)
+        super().__init__(csvrdr, sampling_budget, lowest_resolution)
         self.sampled_window_count = 0
         self.sampled_windows: List[TimeWindow] = []
 
