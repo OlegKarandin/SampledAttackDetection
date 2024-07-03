@@ -146,6 +146,46 @@ class DynamicWindowSampler(TSSampler):
 
         return samples
 
+    def sample_debug(
+        self,
+        starting_time: float,
+        window_skip: float,
+        window_length: float,
+        initial_precise: bool = False,
+        first_sample: bool = False,
+    ) -> Tuple[Sequence[Any], Sequence[Any]]:
+        # ) -> SampledFlowSession:
+        # ) -> pd.DataFrame:
+        """
+        Will just return a list of samples
+
+        Parameters
+        ~~~~~~~~~~
+            e  - initial_precise: Whether we shoudl staat precisely at the provided time or at the closest packet to it
+        """
+
+        _starting_time = starting_time
+        _stopping_time = starting_time + window_length
+
+        assert self.sampling_budget > 0, "Sampling budget must be greater than 0"
+        samples = []
+        for s in range(self.sampling_budget):
+            idx_firstsamp = binary_search(self.timeseries_rdr, _starting_time)
+            idx_lastsamp = binary_search(self.timeseries_rdr, _stopping_time)
+
+            # This call might be IPC so be careful not to abuse it
+            cur_samples = self.timeseries_rdr[idx_firstsamp:idx_lastsamp]
+            samples += cur_samples
+
+            _starting_time += window_skip
+            _stopping_time = _starting_time + window_length
+
+        _veryfirst_idx = binary_search(self.timeseries_rdr, starting_time)
+        _actual_final_stopping_time = _starting_time
+        all_dem_samples = self.timeseries_rdr[_veryfirst_idx:idx_lastsamp]
+
+        return samples, all_dem_samples
+
     # TODO: I doubt we are actually going to be using this
     def window_statistics(
         self, starting_time: float, win_skip: float, win_len: float

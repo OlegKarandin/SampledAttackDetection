@@ -109,3 +109,38 @@ class WeightedSampler(DynamicWindowSampler):
         return super().sample(
             starting_time, window_skip, window_length, initial_precise
         )
+
+    def sample_debug(
+        self,
+        starting_time: float,
+        window_skip: float,
+        window_length: float,
+        initial_precise: bool = False,
+        first_sample: bool = False,
+    ) -> Sequence[Any]:
+        # We first make sure that this is the first sample
+        # Chose from one of the bins
+        norm_probs = self.perbin_weight[1:] / self.perbin_weight[1:].sum()
+        choice_idx = int(
+            np.random.choice(range(len(self.bins_times) - 1), 1, p=norm_probs).item()
+        )
+        attackid_to_label = {a.value: a for a in self.labels}
+        # print(
+        #     f"We chosen bin {choice_idx} corresponding to time {self.bins_times[choice_idx]}({to_canadian(self.bins_times[choice_idx])}) and label {attackid_to_label[self.bins_labels[choice_idx]]}"
+        # )
+        ltime = self.bins_times[choice_idx]
+        rtime = self.bins_times[choice_idx + 1]
+
+        # If we are on our first sample we are expected to chose it ourselves
+        adj_starting_time = starting_time
+        if first_sample == True:
+            adj_starting_time = np.random.uniform(ltime, rtime, 1).item()
+
+        actual_sample, debug_sample = super().sample_debug(
+            adj_starting_time, window_skip, window_length, initial_precise
+        )
+        print(f"Chose time {adj_starting_time} from {ltime} to {rtime}")
+        print(
+            f"With amount of samples {len(actual_sample)} and debug sample {len(debug_sample)}"
+        )
+        return actual_sample, debug_sample
