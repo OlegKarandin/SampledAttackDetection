@@ -297,7 +297,6 @@ def env_wrapper(env) -> gym.Env:
     explicit_registration()
 
     # Specify the NetworkSampleFactor
-    sample_factory = NetworkSampleFactory()
     feature_factory = NetworkFeatureFactory(args.obs_elements, attacks_to_detect)
 
     num_features = len(args.obs_elements)
@@ -395,8 +394,15 @@ if __name__ == "__main__":
     csv_path = Path(args.csv_path_str)
     csv_reader = NetCSVReader(csv_path)
 
+    labels = [
+        Attack.BENIGN,
+        Attack.HULK,
+        Attack.GOLDENEYE,
+        Attack.SLOWLORIS,
+        Attack.SLOWHTTPTEST,
+    ]
     global_sampler = WeightedSampler(
-        csv_reader, args.sampling_budget, args.weighted_bins_num
+        csv_reader, args.sampling_budget, args.weighted_bins_num, labels
     )
     global_sampler_ref = ray.put(global_sampler)
     # csv_reader_ref = ray.put(csv_reader)
@@ -408,6 +414,7 @@ if __name__ == "__main__":
 
     print("Resetting the environment")
     set_all_seeds(args.random_seed)
+
     algo = (
         PPOConfig()
         .env_runners(num_env_runners=1)
@@ -417,6 +424,7 @@ if __name__ == "__main__":
         .callbacks(lambda: MyCallbacks(wandb_run))  # type : ignore
         .build()
     )
+
     sample_timeout_s = algo.config.get("sample_timeout_s", "Not set")
     batch_size = algo.config.get("train_batch_size", "Not set")
 
@@ -432,6 +440,7 @@ if __name__ == "__main__":
         clear_screen()
         logger.info(f"Finished with {i}th epoch with time {epoch_time[-1]}.")
         desired_dict = get_keys_of_interest(result, LOCAL_KEYS_OF_INTEREST)
+
         logger.info(
             f"""
         Training (epoch {i+1}/{args.epochs}):

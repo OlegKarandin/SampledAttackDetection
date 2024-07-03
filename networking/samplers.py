@@ -1,12 +1,14 @@
-import pdb
-from typing import Any, Sequence
+import datetime
+from pathlib import Path
+from typing import Any, Sequence, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-from networking.common_lingo import ATTACK_TO_STRING, STRING_TO_ATTACKS, Attack
+from networking.common_lingo import Attack
 from sampleddetection.readers import AbstractTimeSeriesReader
-from sampleddetection.samplers import DynamicWindowSampler, SampleFactory, binary_search
+from sampleddetection.samplers import DynamicWindowSampler, binary_search
+from sampleddetection.utils import setup_logger
 
 
 class WeightedSampler(DynamicWindowSampler):
@@ -15,43 +17,69 @@ class WeightedSampler(DynamicWindowSampler):
     Expects its timeseries_rdr to contain weights for different time windows
     """
 
+    SHOULD_CACHE = True
+
     def __init__(
         self,
         timeseries_rdr: AbstractTimeSeriesReader,
-        # TOREM: Not really being used
         sampling_budget: int,
         num_bins: int,
+        labels: Sequence,
         lowest_resolution: float = 1e-6,
     ):
         self.sampling_regions = []
         self.sr_weights = []
         self.timeseries_rdr = timeseries_rdr
-        self._generate_regions(num_bins)
+        self.logger = setup_logger(__class__.__name__)
+        self.labels = labels
+        self.logger.info(
+            "Going to generate the weights for time windows. This will take a while"
+        )
+        reg_results = self._generate_regions(num_bins)
+        self.bins_times, self.bins_labels, self.perbin_weight = reg_results
+        self.bins_labels = self.bins_labels.astype(np.int8)
+        self.logger.info("Calculated weights.")
+
+        # Save bin histogram
+        self.bin_counts = np.zeros_like(self.perbin_weight)
+
         super().__init__(
             timeseries_rdr,
             sampling_budget,
             lowest_resolution,
         )
 
-    def _generate_regions(self, num_bins: int):
+    def _generate_regions(
+        self, num_bins: int
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        cache_dir = ".cache_dir/bins.npy"
+        exists_dir = Path(cache_dir).exists()
+        if self.SHOULD_CACHE and exists_dir == True:
+            # Load it
+            self.logger.info("Loading the bins from cache")
+            ret_info = np.load(cache_dir)
+            return ret_info[0], ret_info[1].astype(np.int8), ret_info[2]
+
         # Calculate all divisions
         fin_time = self.timeseries_rdr.fin_time
         init_time = self.timeseries_rdr.init_time
-        bins = np.linspace(init_time, fin_time, num_bins)
+        ret_info = np.linspace(init_time, fin_time, num_bins)
         lidx = 0
         num_samples_g = 1000
 
-        labels_map = {
-            Attack.BENIGN: Attack.BENIGN.value,
-            Attack.HULK: Attack.HULK.value,
-            Attack.GOLDENEYE: Attack.GOLDENEYE.value,
-            Attack.SLOWLORIS: Attack.SLOWLORIS.value,
-            Attack.SLOWHTTPTEST: Attack.SLOWHTTPTEST.value,
-        }
+        # labels_map = {
+        #     Attack.BENIGN: Attack.BENIGN.value,
+        #     Attack.HULK: Attack.HULK.value,
+        #     Attack.GOLDENEYE: Attack.GOLDENEYE.value,
+        #     Attack.SLOWLORIS: Attack.SLOWLORIS.value,
+        #     Attack.SLOWHTTPTEST: Attack.SLOWHTTPTEST.value,
+        # }
+        labels_map = [l.value for l in self.labels]
 
-        bins_times = []
-        bins_labels = []
-        for i, b in enumerate(bins):
+        # Have to figure out how to better add the left bound
+        bins_times = [self.timeseries_rdr.init_time]
+        bins_labels = [Attack.BENIGN.value]
+        for i, b in enumerate(ret_info):
             if i == 0:
                 continue
             # Find the timestamp
@@ -65,7 +93,6 @@ class WeightedSampler(DynamicWindowSampler):
             label = Attack.BENIGN.value  # By default
             if sum(packs_lbls == Attack.BENIGN.value) != num_samples:
                 label = packs_lbls[packs_lbls != Attack.BENIGN.value][0]
-                print("|", end="")
 
             lidx = ridx
             bins_labels.append(label)
@@ -74,10 +101,9 @@ class WeightedSampler(DynamicWindowSampler):
         bl_np = np.array(bins_labels, dtype=np.int8)
         uni_weight = 1 / len(labels_map)
         perunit_weigth = np.zeros_like(bl_np, dtype=np.float32)
-        for l in labels_map.values():
+        for l in labels_map:
             idxs = np.where(bl_np == l)[0]
             perunit_weigth[idxs] = uni_weight / len(idxs)
-        pdb.set_trace()
 
         # And lets plot it as a histogram just for funsies
         # bt_np = np.array(bins_times)
@@ -92,7 +118,12 @@ class WeightedSampler(DynamicWindowSampler):
         #     plt.scatter(bts[i], np.full_like(bts[i], 1), label=ATTACK_TO_STRING[l])
         # plt.legend()
         # plt.show()
-        return bins_times, bins_labels, perunit_weigth
+        pdb.set_trace()
+        if self.SHOULD_CACHE:
+            # Make parent
+            Path("./.cache_dir/").mkdir(parents=True, exist_ok=True)
+            np.save(cache_dir, (bins_times, bins_labels, perunit_weigth))
+        return np.array(bins_times, dtype=np.float32), bl_np, perunit_weigth
 
     def sample(
         self,
@@ -100,14 +131,27 @@ class WeightedSampler(DynamicWindowSampler):
         window_skip: float,
         window_length: float,
         initial_precise: bool = False,
-        **kwargs,
+        first_sample: bool = False,
     ) -> Sequence[Any]:
         # We first make sure that this is the first sample
-        assert "fist_sample" in kwargs
-        # We will first chose from one of
+        # Chose from one of the bins
+        norm_probs = self.perbin_weight[1:] / self.perbin_weight[1:].sum()
+        choice_idx = np.random.choice(
+            range(len(self.bins_times) - 1), 1, p=norm_probs
+        ).item()
+        ltime = self.bins_times[choice_idx]
+        rtime = self.bins_times[choice_idx + 1]
+
+        # If we are on our first sample we are expected to chose it ourselves
+        adj_starting_time = starting_time
+        if first_sample == True:
+            human_readable = datetime.datetime.fromtimestamp(starting_time)
+            adj_starting_time = np.random.uniform(ltime, rtime, 1).item()
+
+        human_readable = datetime.datetime.fromtimestamp(adj_starting_time)
 
         return super().sample(
-            starting_time, window_skip, window_length, initial_precise
+            adj_starting_time, window_skip, window_length, initial_precise
         )
 
     def sample_debug(

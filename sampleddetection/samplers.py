@@ -22,6 +22,7 @@ class TSSampler(ABC):
         window_skip: float,
         window_length: float,
         initial_precise: bool = False,
+        first_sample: bool = False,
     ) -> Sequence[Any]:
         pass
 
@@ -103,6 +104,7 @@ class DynamicWindowSampler(TSSampler):
         window_skip: float,
         window_length: float,
         initial_precise: bool = False,
+        first_sample: bool = False,
     ) -> Sequence[Any]:
         # ) -> SampledFlowSession:
         # ) -> pd.DataFrame:
@@ -113,9 +115,6 @@ class DynamicWindowSampler(TSSampler):
         ~~~~~~~~~~
             e  - initial_precise: Whether we shoudl staat precisely at the provided time or at the closest packet to it
         """
-        # self.logger.debug(
-        #     f"Entering with starting_time {starting_time} (of type {type(starting_time)}), window_skip {window_skip} and window_length {window_length}"
-        # )
 
         _starting_time = starting_time
         _stopping_time = starting_time + window_length
@@ -125,22 +124,10 @@ class DynamicWindowSampler(TSSampler):
             idx_firstsamp = binary_search(self.timeseries_rdr, _starting_time)
             idx_lastsamp = binary_search(self.timeseries_rdr, _stopping_time)
 
-            # self.logger.debug(
-            #     f"Entering with starting_time {_starting_time} and ending at {_stopping_time}"
-            # )
-            # self.logger.debug(f"Will sample between {idx_firstsamp} -> {idx_lastsamp}")
-
             # This call might be IPC so be careful not to abuse it
             cur_samples = self.timeseries_rdr[idx_firstsamp:idx_lastsamp]
             samples += cur_samples
 
-            ### DEBUG:
-            # for c in cur_samples:
-            #     self.logger.debug(f"\tSampled packet at time {c.time}")
-
-            # self.logger.debug(
-            #     f"{s}thn (Win:{_starting_time}->{_stopping_time}) batch contains {len(cur_samples)} samples"
-            # )
             _starting_time += window_skip
             _stopping_time = _starting_time + window_length
 
@@ -228,6 +215,7 @@ class NoReplacementSampler(DynamicWindowSampler):
         sampling_budget: int,
         specific_sample_factory: SampleFactory,
         lowest_resolution: float = 1e-6,
+        first_sample: bool = False,
     ):
         super().__init__(csvrdr, sampling_budget, lowest_resolution)
         self.sampled_window_count = 0
