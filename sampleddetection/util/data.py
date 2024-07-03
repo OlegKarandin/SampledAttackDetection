@@ -1,6 +1,7 @@
 """
 Utility functions for loading datasets
 """
+
 from typing import List, Tuple
 
 import hyperopt
@@ -13,64 +14,63 @@ from sklearn.metrics import accuracy_score, log_loss, roc_auc_score
 from sklearn.model_selection import cross_val_score, train_test_split
 from xgboost import XGBClassifier
 
-from ..common_lingo import ATTACK_TO_STRING, Attack
+# TODO: if ever needed again make sure to get it compatible to new framework
+# def relabel_df(
+#     df: pd.DataFrame, group_attacks: bool, attacks_to_detect: List[Attack]
+# ) -> Tuple[pd.DataFrame, List[int]]:
+#     # keep the chosen attacks.
+#     labels = [ATTACK_TO_STRING[attack] for attack in attacks_to_detect]
+#     labels.append(ATTACK_TO_STRING[Attack.BENIGN])
+#     relabelled_df = df[df["label"].isin(labels)]
+#
+#     # Set labels to 0/1
+#     if not group_attacks:
+#         temp_dict = {
+#             ATTACK_TO_STRING[att_name]: i + 1
+#             for i, att_name in enumerate(attacks_to_detect)
+#         }
+#     else:
+#         temp_dict = {ATTACK_TO_STRING[att_name]: 1 for att_name in attacks_to_detect}
+#
+#     temp_dict[ATTACK_TO_STRING[Attack.BENIGN]] = 0
+#     labels = list(temp_dict.values())
+#     relabelled_df["label"] = relabelled_df["label"].map(temp_dict)
+#     relabelled_df = relabelled_df.reset_index(drop=True)
+#
+#     return relabelled_df, labels
 
 
-def relabel_df(
-    df: pd.DataFrame, group_attacks: bool, attacks_to_detect: List[Attack]
-) -> Tuple[pd.DataFrame, List[int]]:
-    # keep the chosen attacks.
-    labels = [ATTACK_TO_STRING[attack] for attack in attacks_to_detect]
-    labels.append(ATTACK_TO_STRING[Attack.BENIGN])
-    relabelled_df = df[df["label"].isin(labels)]
-
-    # Set labels to 0/1
-    if not group_attacks:
-        temp_dict = {
-            ATTACK_TO_STRING[att_name]: i + 1
-            for i, att_name in enumerate(attacks_to_detect)
-        }
-    else:
-        temp_dict = {ATTACK_TO_STRING[att_name]: 1 for att_name in attacks_to_detect}
-
-    temp_dict[ATTACK_TO_STRING[Attack.BENIGN]] = 0
-    labels = list(temp_dict.values())
-    relabelled_df["label"] = relabelled_df["label"].map(temp_dict)
-    relabelled_df = relabelled_df.reset_index(drop=True)
-
-    return relabelled_df, labels
-
-
-def clean_dataset(
-    df: pd.DataFrame,
-    selected_features: List,
-    attacks_to_detect: List[Attack],
-    group_attacks: bool,
-):
-    """
-    Params:
-    ~~~~~~~
-        - selected_features: list of features to retrieve from csv
-        - csv_location: csv location
-        - attacks_to_detect: list of attacks to retrieve filter for
-        - bool_classification: if true changes labeled attacks to 1, bening to 0
-        - group_attacks: take all attacks as a single binary label. Attack or no attack
-    """
-    old_df = df.copy()
-    # clean up
-    new_cols = {col: col.strip() for col in df.columns}
-    df.rename(columns=new_cols, inplace=True)
-    df.replace([np.inf, -np.inf], np.nan, inplace=True)
-    df.dropna(inplace=True)
-    # df.drop_duplicates(inplace=True)
-    # for feature in selected_features:
-    #     df = df[df[feature] >= 0]
-    df = df[selected_features]
-
-    # Relabel the dataset
-    relabelled_df, labels = relabel_df(df, group_attacks, attacks_to_detect)
-
-    return relabelled_df
+# def clean_dataset(
+#     df: pd.DataFrame,
+#     selected_features: List,
+#     attacks_to_detect: List[Attack],
+#     group_attacks: bool,
+# ):
+#     """
+#     Params:
+#     ~~~~~~~
+#         - selected_features: list of features to retrieve from csv
+#         - csv_location: csv location
+#         - attacks_to_detect: list of attacks to retrieve filter for
+#         - bool_classification: if true changes labeled attacks to 1, bening to 0
+#         - group_attacks: take all attacks as a single binary label. Attack or no attack
+#     """
+#     old_df = df.copy()
+#     # clean up
+#     new_cols = {col: col.strip() for col in df.columns}
+#     df.rename(columns=new_cols, inplace=True)
+#     df.replace([np.inf, -np.inf], np.nan, inplace=True)
+#     df.dropna(inplace=True)
+#     # df.drop_duplicates(inplace=True)
+#     # for feature in selected_features:
+#     #     df = df[df[feature] >= 0]
+#     df = df[selected_features]
+#
+#     # Relabel the dataset
+#     relabelled_df, labels = relabel_df(df, group_attacks, attacks_to_detect)
+#
+#     return relabelled_df
+#
 
 
 def train_classifier_XGBoost(X_train, y_train, X_val, y_val):
@@ -178,6 +178,6 @@ def train_multinary_classier_XGBoost(X_train, y_train, X_val, y_val):
     metrics = {
         "accuracy": accuracy_score(y_val, y_pred),
         "log_loss": log_loss(y_val, y_pred_proba),
-#        "roc_auc": roc_auc_score(y_val, y_pred_proba),
+        # "roc_auc": roc_auc_score(y_val, y_pred_proba),
     }
     return xgb_cl, metrics

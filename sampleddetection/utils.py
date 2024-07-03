@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any, List, Union
 
 import numpy as np
+import pytz
 
 FLAGS_TO_VAL = {
     "FIN": 0x01,
@@ -17,6 +18,30 @@ FLAGS_TO_VAL = {
     "ECE": 0x40,
     "CWR": 0x80,
 }
+
+
+def pretty_print(dicto: dict, nesting_spacing=2) -> str:
+    assert nesting_spacing >= 2, "Provice spacing of atleast 2 to pretty_print"
+    pretty_str = ""
+    for k, v in dicto.items():
+        pretty_str += f"{k} : "
+        if isinstance(v, dict):
+            pretty_str += "\n" + pretty_print(v, nesting_spacing + 2)
+        else:
+            pretty_str += f"{v}\n"
+    return pretty_str
+
+
+def to_canadian(tstamp: float) -> str:
+    # Convert to UTC-3
+    utc_dt = datetime.utcfromtimestamp(tstamp)
+    # Define the target timezone
+    target_timezone = pytz.timezone("America/Belem")
+    # Localize the naive datetime object to the target timezone
+    localized_dt = pytz.utc.localize(utc_dt).astimezone(target_timezone)
+
+    ## Return in HH:MM:SS format
+    return localized_dt.strftime("%H:%M:%S")
 
 
 def keychain_retrieve(nested_dict, keys) -> Union[None, Any]:

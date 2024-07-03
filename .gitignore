@@ -2,6 +2,7 @@
 data/*
 **models/
 bigdata/
+.cache_dir/
 **partitions/
 launch.json
 logs/

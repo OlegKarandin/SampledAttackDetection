@@ -1,3 +1,4 @@
+import datetime
 import random
 from logging import DEBUG
 from typing import Any, Sequence, Tuple, Union
@@ -7,7 +8,7 @@ import numpy as np
 from sampleddetection.datastructures import Action, State
 from sampleddetection.reward_signals import RewardCalculatorLike
 from sampleddetection.samplers import FeatureFactory, TSSampler
-from sampleddetection.utils import clamp, setup_logger, within
+from sampleddetection.utils import clamp, pretty_print, setup_logger, within
 
 
 class SamplingEnvironment:
@@ -20,10 +21,10 @@ class SamplingEnvironment:
 
     # Hyperparameters
     # CHECK: That we hav good ranges
-    WINDOW_SKIP_RANGE = [1e-7, 6e2]
+    WINDOW_SKIP_RANGE = [1e-6, 150e-3]
     WINDOW_LENGTH_RANGE = [1e-6, 1e-2]
     AMOUNT_OF_SAMPLES_PER_ACTION = 1  # Where action means selection of frequency/window
-    PREVIOUS_AMNT_SAMPLES = 12
+    PREVIOUS_AMNT_SAMPLES = 4
     DAY_RIGHT_MARGIN = 1  # CHECK: Must be equal 1 at deployment
 
     def __init__(
@@ -32,7 +33,6 @@ class SamplingEnvironment:
         feature_factory: FeatureFactory[Any],
         reward_calculator: RewardCalculatorLike,
     ):
-
         self.sampler = sampler
         self.logger = setup_logger(self.__class__.__name__, DEBUG)
         # self.observable_features = observable_features
@@ -50,7 +50,7 @@ class SamplingEnvironment:
         # CHECK: that this reset call is even necessary
         self.reset()
 
-    def step(self, action: Action) -> Tuple[State, float]:
+    def step(self, action: Action) -> Tuple[State, float, dict]:
         """
         Core functionality as well as data processing b4
 
@@ -105,7 +105,9 @@ class SamplingEnvironment:
         #     f"Sampling about to take place at current time {cur_time} (of type {type(cur_time)}) with window lenght {window_length}"
         # )
         # TODO: Ensure we can remove window_skipo later, its not being used already
-        new_samples = self.sampler.sample(cur_time, window_skip, window_length)
+        new_samples = self.sampler.sample(
+            cur_time, window_skip, window_length, first_sample=False
+        )
         # if len(new_samples) >= 0:
         #     self.logger.debug(f"Obtained {len(new_samples)} from our sampler")
         # else:
@@ -113,6 +115,9 @@ class SamplingEnvironment:
         #
         arraylike_features, labels = self.feature_factory.make_feature_and_label(
             new_samples
+        )
+        self.logger.debug(
+            f"We got {len(labels)} samples at cur_time {cur_time} with window_skip {window_skip} and window_length {window_length}"
         )
 
         # self.logger.debug("In preparation to go into State")
@@ -125,27 +130,28 @@ class SamplingEnvironment:
             observations=arraylike_features,
         )
 
-        # self.logger.debug(f"They look like: {new_state.observations}")
+        ### START: Debug section
+        # Get statistics of iat between between first and last sampling points
+        # Should give us an idea of where our algorithm resides to be.
+        extra_obs = {}
+        # extra_obs = self.sampler.window_statistics(cur_time, window_skip, window_length)
 
+        # Show current staste
+        _debug_ts = datetime.datetime.fromtimestamp(cur_time)
+        _debug_ts_str = _debug_ts.strftime("%H:%M:%S")
+        self.logger.debug(
+            f"Our current window_skip {window_skip} and window length {window_length} for timepoint {_debug_ts_str}"
+        )
+
+        ### END: Debug section
         return_reward = self.reward_calculator.calculate(
             features=arraylike_features, ground_truths=labels
         )
 
-        # self.logger.debug(
-        #     f"We are working with sampled state of shape {new_state.observations.shape}"
-        # )
-
         ### Update new state
         self.cur_state = new_state
-        # self.logger.debug(
-        #     f"Final obtained state of type {type(new_state.observations)} is of size {len(new_state.observations)} "
-        # )
 
-        return self.cur_state, return_reward
-
-    # def _step(self, cur_time, winskip, winlen) -> Tuple[State, float]:
-    #
-    #     return new_state, return_reward
+        return self.cur_state, return_reward, extra_obs
 
     def reset(
         self,
@@ -163,6 +169,7 @@ class SamplingEnvironment:
             self.cur_state.time_point,
             self.cur_state.window_skip,
             self.cur_state.window_length,
+            first_sample=True,
         )
 
         # self.logger.debug(f"Sampled for SamplingEnvironment reset")

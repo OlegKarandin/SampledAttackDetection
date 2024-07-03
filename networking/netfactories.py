@@ -35,22 +35,18 @@ class NetworkSampleFactory(SampleFactory[CSVSample]):
 
 class NetworkFeatureFactory(FeatureFactory[PacketLike]):
 
-    def __init__(self, observable_features: Sequence[str], labels: Sequence[Attack]):
+    def __init__(self, observable_features: Tuple[str], labels: Tuple[Attack, ...]):
         self.logger = setup_logger(__class__.__name__)
-        self.observable_features: Set[str] = set(observable_features)
+        self.observable_features = observable_features
         self.expected_labels = (
-            list(labels)
-            + [
-                Attack.BENIGN,
-            ]
-            if Attack.BENIGN not in labels
-            else labels
+            [Attack.BENIGN] + list(labels) if Attack.BENIGN not in labels else labels
         )
         self.logger.info(f"Expected labels are {self.expected_labels}")
         self.labels_to_idx: Dict[Attack, int] = {k: i for i, k in enumerate(labels)}
         self.strings_to_idx: Dict[str, int] = {
             ATTACK_TO_STRING[k]: i for i, k in enumerate(self.expected_labels)
         }
+        self.logger.debug(f"Labels are in order {self.strings_to_idx}")
         # For t
 
     def make_feature_and_label(
@@ -116,14 +112,26 @@ class NetworkFeatureFactory(FeatureFactory[PacketLike]):
 
     def _get_flow_feats(self, feat_dict: Dict[str, float]) -> List:
         sample_features = []
-        for feat_name, v in feat_dict.items():
-            if feat_name in self.observable_features:
-                if isinstance(v, str):  # i.e if is label
-                    if v not in list(ATTACK_TO_STRING.values()):
-                        raise ValueError(
-                            f"Received string does not correspond to label."
-                        )
-                    else:
-                        v = self.strings_to_idx[v]
-                sample_features.append(float(v))
+        if feat_dict["label"] not in list(ATTACK_TO_STRING.values()):
+            raise ValueError(f"Received string does not correspond to label.")
+
+        for fn in self.observable_features:
+            v = float(feat_dict[fn])
+            sample_features.append(float(v))
+
         return sample_features
+
+    # Old one does not enforce order
+    # def _get_flow_feats(self, feat_dict: Dict[str, float]) -> List:
+    #     sample_features = []
+    #     for feat_name, v in feat_dict.items():
+    #         if feat_name in self.observable_features:
+    #             if isinstance(v, str):  # i.e if is label
+    #                 if v not in list(ATTACK_TO_STRING.values()):
+    #                     raise ValueError(
+    #                         f"Received string does not correspond to label."
+    #                     )
+    #                 else:
+    #                     v = self.strings_to_idx[v]
+    #             sample_features.append(float(v))
+    #     return sample_features

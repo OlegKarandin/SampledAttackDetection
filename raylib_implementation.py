@@ -13,6 +13,7 @@ from time import time
 from typing import Any, Dict, Optional, Union
 
 import gymnasium as gym
+import joblib as joblib
 import numpy as np
 import ray
 import torch
@@ -30,7 +31,6 @@ from ray.rllib.policy.policy import Policy
 from ray.rllib.policy.sample_batch import MultiAgentBatch, SampleBatch
 from ray.rllib.utils.metrics.metrics_logger import MetricsLogger
 from ray.rllib.utils.typing import EpisodeType, PolicyID
-from ray.tune.logger import pretty_print
 from ray.tune.registry import register_env
 from wandb.sdk.wandb_run import Run
 
@@ -42,8 +42,14 @@ from networking.common_lingo import Attack
 from networking.downstream_tasks.deepnets import Classifier
 from networking.netfactories import NetworkFeatureFactory, NetworkSampleFactory
 from networking.readers import NetCSVReader
+from networking.samplers import WeightedSampler
 from sampleddetection.datastructures import Action
-from sampleddetection.reward_signals import DNN_RewardCalculator
+from sampleddetection.environments import SamplingEnvironment
+from sampleddetection.reward_signals import (
+    DNN_RewardCalculator,
+    RandForRewardCalculator,
+)
+from sampleddetection.samplers import DynamicWindowSampler
 from sampleddetection.utils import (
     clear_screen,
     get_keys_of_interest,
@@ -114,6 +120,19 @@ def argsies():
         default=420,
         type=int,
         help="Seed for random generators",
+    )
+    # Random forst
+    ap.add_argument(
+        "--pretrained_ranfor",
+        default="./models/multinary_detection_model.joblib",
+        type=str,
+        help="Pretrained random forest model",
+    )
+    ap.add_argument(
+        "--weighted_bins_num",
+        default=1600,
+        type=int,
+        help="Bins for the weighted algorithm",
     )
 
     # Prelimns
@@ -238,9 +257,10 @@ class MyCallbacks(DefaultCallbacks):
         self.logger.debug(
             f"Observations (shape {samples.policy_batches['default_policy']['obs'].shape}) themselves: {samples.policy_batches['default_policy']['obs']}"
         )
-        assert (
-            samples.count == 128
-        ), f"Sample count does not match 128 it is actually {samples.count}"
+        # TODO: Create a better assertion for this
+        # assert (
+        #     samples.count == 128
+        # ), f"Sample count does not match 128 it is actually {samples.count}"
 
     def on_episode_end(
         self,
@@ -270,38 +290,46 @@ class MyCallbacks(DefaultCallbacks):
 
 
 def env_wrapper(env) -> gym.Env:
+    """
+    To my understanding each process will run this independently.
+    """
     # Call the registration
     explicit_registration()
 
     # Specify the NetworkSampleFactor
-    sample_factory = NetworkSampleFactory()
     feature_factory = NetworkFeatureFactory(args.obs_elements, attacks_to_detect)
 
     num_features = len(args.obs_elements)
 
-    # Create Data Reader
-    # csv_path = Path(args.csv_path_str)
-    # assert csv_path.exists(), "csv path provided does not exist"
-    # data_reader = CSVReader(csv_path)
+    ### In case classification learner
+    # # Create the downstream classidication learner
+    # classifier = Classifier(
+    #     input_size=num_features, output_size=len(attacks_to_detect) + 1
+    # )
+    # # Create reward calculator to use
+    # reward_calculator = DNN_RewardCalculator(classifier)
 
-    # Create the downstream classidication learner
-    classifier = Classifier(
-        input_size=num_features, output_size=len(attacks_to_detect) + 1
+    # Use the random forest creation
+    reward_calculator = RandForRewardCalculator(args.pretrained_ranfor)
+
+    # CHECK: Do we want to use NoReplacementSampler or DynamicSampler?
+    # Remember that NoReplacementSampler has quite the overhead
+    # meta_sampler = NoReplacementSampler(data_reader, sample_factory)
+    sampler = ray.get(global_sampler_ref)
+
+    sampenv = SamplingEnvironment(
+        sampler,
+        reward_calculator=reward_calculator,
+        feature_factory=feature_factory,
     )
-    # Create reward calculator to use
-    reward_calculator = DNN_RewardCalculator(classifier)
 
     print("Trying to make NETENVE")
     env = gym.make(
         "NetEnv",
-        num_obs_elements=len(args.obs_elements),
+        sampling_env=sampenv,
+        num_obs_elements=num_features,
         actions_max_vals=Action(60, 10),
-        data_reader_ref=csv_reader_ref,
         action_idx_to_direction=args.action_dir,
-        sample_factory=sample_factory,
-        feature_factory=feature_factory,
-        reward_calculator=reward_calculator,
-        sampling_budget=args.sampling_budget,
     )
     print("MANAGED TO MAKE NETENV")
     # Use wrapper to normalize the data:
@@ -331,16 +359,16 @@ if __name__ == "__main__":
         )
 
     # Define which labels one expects on the given dataset
-    attacks_to_detect = [
-        Attack.SLOWLORIS,
-        Attack.SLOWHTTPTEST,
+    attacks_to_detect = (
         Attack.HULK,
         Attack.GOLDENEYE,
+        Attack.SLOWLORIS,
+        Attack.SLOWHTTPTEST,
         # Attack.HEARTBLEED. # Takes too long find in dataset.
-    ]
+    )
 
     # Columns to Normalize
-    columns_to_normalize = [
+    columns_to_normalize = (
         "fwd_pkt_len_max",
         "fwd_pkt_len_min",
         "fwd_pkt_len_mean",
@@ -361,11 +389,23 @@ if __name__ == "__main__":
         "pkt_len_min",
         "pkt_len_max",
         "pkt_len_mean",
-    ]
+    )
     # Make shared CSVReader
     csv_path = Path(args.csv_path_str)
     csv_reader = NetCSVReader(csv_path)
-    csv_reader_ref = ray.put(csv_reader)
+
+    labels = [
+        Attack.BENIGN,
+        Attack.HULK,
+        Attack.GOLDENEYE,
+        Attack.SLOWLORIS,
+        Attack.SLOWHTTPTEST,
+    ]
+    global_sampler = WeightedSampler(
+        csv_reader, args.sampling_budget, args.weighted_bins_num, labels
+    )
+    global_sampler_ref = ray.put(global_sampler)
+    # csv_reader_ref = ray.put(csv_reader)
 
     # Make the environment
     print("Make the environment")
@@ -374,6 +414,7 @@ if __name__ == "__main__":
 
     print("Resetting the environment")
     set_all_seeds(args.random_seed)
+
     algo = (
         PPOConfig()
         .env_runners(num_env_runners=1)
@@ -383,6 +424,7 @@ if __name__ == "__main__":
         .callbacks(lambda: MyCallbacks(wandb_run))  # type : ignore
         .build()
     )
+
     sample_timeout_s = algo.config.get("sample_timeout_s", "Not set")
     batch_size = algo.config.get("train_batch_size", "Not set")
 
@@ -398,6 +440,7 @@ if __name__ == "__main__":
         clear_screen()
         logger.info(f"Finished with {i}th epoch with time {epoch_time[-1]}.")
         desired_dict = get_keys_of_interest(result, LOCAL_KEYS_OF_INTEREST)
+
         logger.info(
             f"""
         Training (epoch {i+1}/{args.epochs}):

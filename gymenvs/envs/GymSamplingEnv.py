@@ -31,32 +31,15 @@ class GymSamplingEnv(gym.Env):
 
     def __init__(
         self,
+        sampling_env: SamplingEnvironment,
         num_obs_elements: int,
         actions_max_vals: List[float],
-        data_reader_ref: ObjectRef,
         action_idx_to_direction: Dict[int, int],  # TODO: maybe change to simply scaling
-        sample_factory: SampleFactory,
-        feature_factory: FeatureFactory,
-        reward_calculator: RewardCalculatorLike,
-        sampling_budget: int,
     ):
+        self.env = sampling_env
 
         # Get Dependency Injection elements.
         self.logger = setup_logger(__class__.__name__)
-        # TODO: we have to check this NoReplacementSampler is not too slow
-        self.data_reader = ray.get(data_reader_ref)
-        # CHECK: Do we want to use NoReplacementSampler or DynamicSampler?
-        # Remember that NoReplacementSampler has quite the overhead
-        # meta_sampler = NoReplacementSampler(self.data_reader, sample_factory)
-        meta_sampler = DynamicWindowSampler(
-            self.data_reader, sample_factory, sampling_budget
-        )
-
-        self.env = SamplingEnvironment(
-            meta_sampler,
-            reward_calculator=reward_calculator,
-            feature_factory=feature_factory,
-        )
 
         # TOREM: Retrieve feature_factories observation dictionary
         # obs_el_str = feature_factory.make_feature_and_label()
@@ -114,16 +97,18 @@ class GymSamplingEnv(gym.Env):
         action_message = Action(winskip_delta=action[0], winlen_delta=action[1])
 
         # Then we get the action environment to act on it
-        state, reward = self.env.step(action_message)
+        state, reward, extra_obs = self.env.step(action_message)
         # Tuple to return is (observation, reward, terminated, truncaed, info)
 
         terminated = False
         truncated = False
-        info = {}
+        info = extra_obs
 
         observation = state.observations.mean(axis=0)
 
-        self.logger.debug(f"Observation is looking like {observation}")
+        self.logger.debug(
+            f"Observation is looking like {observation} with rewards {reward}"
+        )
         # We must convv
         return observation, reward, terminated, truncated, info
 

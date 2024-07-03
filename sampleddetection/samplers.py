@@ -1,4 +1,5 @@
 import logging
+import time
 from abc import ABC, abstractmethod
 from math import ceil
 from typing import Any, Generic, List, Sequence, Tuple, TypeVar
@@ -21,7 +22,14 @@ class TSSampler(ABC):
         window_skip: float,
         window_length: float,
         initial_precise: bool = False,
+        first_sample: bool = False,
     ) -> Sequence[Any]:
+        pass
+
+    @abstractmethod
+    def window_statistics(
+        self, starting_time: float, win_skip: float, win_len: float
+    ) -> dict:
         pass
 
     @property
@@ -70,7 +78,6 @@ class DynamicWindowSampler(TSSampler):
         self,
         timeseries_rdr: AbstractTimeSeriesReader,
         # TOREM: Not really being used
-        specific_samplefactory: SampleFactory,  # TOREM: the reader can take on this complexity this is redundant.
         sampling_budget: int,
         lowest_resolution: float = 1e-6,
     ):
@@ -97,6 +104,7 @@ class DynamicWindowSampler(TSSampler):
         window_skip: float,
         window_length: float,
         initial_precise: bool = False,
+        first_sample: bool = False,
     ) -> Sequence[Any]:
         # ) -> SampledFlowSession:
         # ) -> pd.DataFrame:
@@ -107,9 +115,6 @@ class DynamicWindowSampler(TSSampler):
         ~~~~~~~~~~
             e  - initial_precise: Whether we shoudl staat precisely at the provided time or at the closest packet to it
         """
-        # self.logger.debug(
-        #     f"Entering with starting_time {starting_time} (of type {type(starting_time)}), window_skip {window_skip} and window_length {window_length}"
-        # )
 
         _starting_time = starting_time
         _stopping_time = starting_time + window_length
@@ -119,36 +124,100 @@ class DynamicWindowSampler(TSSampler):
             idx_firstsamp = binary_search(self.timeseries_rdr, _starting_time)
             idx_lastsamp = binary_search(self.timeseries_rdr, _stopping_time)
 
-            # self.logger.debug(
-            #     f"Entering with starting_time {_starting_time} and ending at {_stopping_time}"
-            # )
-            # self.logger.debug(f"Will sample between {idx_firstsamp} -> {idx_lastsamp}")
+            # This call might be IPC so be careful not to abuse it
+            cur_samples = self.timeseries_rdr[idx_firstsamp:idx_lastsamp]
+            samples += cur_samples
+
+            _starting_time += window_skip
+            _stopping_time = _starting_time + window_length
+
+        return samples
+
+    def sample_debug(
+        self,
+        starting_time: float,
+        window_skip: float,
+        window_length: float,
+        initial_precise: bool = False,
+        first_sample: bool = False,
+    ) -> Tuple[Sequence[Any], Sequence[Any]]:
+        # ) -> SampledFlowSession:
+        # ) -> pd.DataFrame:
+        """
+        Will just return a list of samples
+
+        Parameters
+        ~~~~~~~~~~
+            e  - initial_precise: Whether we shoudl staat precisely at the provided time or at the closest packet to it
+        """
+
+        _starting_time = starting_time
+        _stopping_time = starting_time + window_length
+
+        assert self.sampling_budget > 0, "Sampling budget must be greater than 0"
+        samples = []
+        for s in range(self.sampling_budget):
+            idx_firstsamp = binary_search(self.timeseries_rdr, _starting_time)
+            idx_lastsamp = binary_search(self.timeseries_rdr, _stopping_time)
 
             # This call might be IPC so be careful not to abuse it
             cur_samples = self.timeseries_rdr[idx_firstsamp:idx_lastsamp]
             samples += cur_samples
 
-            ### DEBUG:
-            # for c in cur_samples:
-            #     self.logger.debug(f"\tSampled packet at time {c.time}")
-
-            # self.logger.debug(
-            #     f"{s}thn (Win:{_starting_time}->{_stopping_time}) batch contains {len(cur_samples)} samples"
-            # )
             _starting_time += window_skip
             _stopping_time = _starting_time + window_length
 
-        return samples
+        _veryfirst_idx = binary_search(self.timeseries_rdr, starting_time)
+        _actual_final_stopping_time = _starting_time
+        all_dem_samples = self.timeseries_rdr[_veryfirst_idx:idx_lastsamp]
+
+        return samples, all_dem_samples
+
+    # TODO: I doubt we are actually going to be using this
+    def window_statistics(
+        self, starting_time: float, win_skip: float, win_len: float
+    ) -> dict:
+
+        st_time = time.time()
+        samples = []
+        end_time = starting_time + (win_skip + win_len) * self.sampling_budget
+        start_idx = binary_search(self.timeseries_rdr, starting_time)
+        end_idx = binary_search(self.timeseries_rdr, end_time)
+
+        self.logger.debug(
+            f"At start time {starting_time} we are given a win_skip:{win_skip} and wind_len {win_len}"
+        )
+        self.logger.debug(
+            f"We are pottentially going through {end_idx-start_idx} ({start_idx}->{end_idx}) samples"
+        )
+        all_samples = self.timeseries_rdr[start_idx:end_idx]
+
+        ### Calculate Statistics
+        ## We will bravely assume that we are dealing with `PacketLike` here
+        times = np.array([s.time for s in all_samples])
+        iats = times[1:] - times[:-1]
+
+        stats = {
+            "mean_iat": iats.mean() if len(iats) != 0 else 0,
+            "min_iat": iats.min() if len(iats) != 0 else 0,
+            "max_iat": iats.max() if len(iats) != 0 else 0,
+        }
+        self.logger.debug(
+            f"window_statiscs took {time.time() - st_time} with {len(samples)} samples between st_time:{st_time} to end_time:{end_time}"
+        )
+        return stats
 
 
 class NoReplacementSampler(DynamicWindowSampler):
     def __init__(
         self,
         csvrdr: AbstractTimeSeriesReader,
+        sampling_budget: int,
         specific_sample_factory: SampleFactory,
         lowest_resolution: float = 1e-6,
+        first_sample: bool = False,
     ):
-        super().__init__(csvrdr, specific_sample_factory, lowest_resolution)
+        super().__init__(csvrdr, sampling_budget, lowest_resolution)
         self.sampled_window_count = 0
         self.sampled_windows: List[TimeWindow] = []
 
