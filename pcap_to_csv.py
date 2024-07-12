@@ -288,7 +288,9 @@ if __name__ == "__main__":
     print("All records received, now turning into csv_path")
     print(f"Skipped {ipv6_counter} ipv6 packets")
 
-    pd.DataFrame(all_rows, columns=args.columnns).to_csv(args.csv_path, index=False)
+    new_df = pd.DataFrame(all_rows, columns=args.columnns)
+    new_df = new_df.sort_values(by="timestamp")
+    new_df.to_csv(args.csv_path, index=False)
 
     with open(args.csv_path.replace(".csv", ".json"), "w") as f:
         json.dump(parsing_metadata, f, indent=4)
