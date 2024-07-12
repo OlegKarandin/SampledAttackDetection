@@ -188,16 +188,6 @@ def train_result_callback(info):
     wandb.log()
 
 
-def generate_parameterized_callback(wandb_run: Run):
-    return type(
-        "ParamCallback",
-        (MyCallbacks,),
-        {
-            "wandb_run": wandb_run,
-        },
-    )
-
-
 class MyCallbacks(DefaultCallbacks):
 
     LIST_OF_INTEREST = [

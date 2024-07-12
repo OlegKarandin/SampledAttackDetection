@@ -146,6 +146,7 @@ class SampledFlowSession:
 
         # Finally add_packet
         _min_max_time = time.time()
+        self.logger.debug(f"VROOM: Adding packet {packet.time}")
         flow.add_packet(packet, direction)
         # self.logger.debug(f"SampledFlowSession adding packet {packet.time}")
         _add_flow_end_time = time.time()
