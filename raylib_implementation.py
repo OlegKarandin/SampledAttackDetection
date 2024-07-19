@@ -32,11 +32,10 @@ from ray.rllib.policy.sample_batch import MultiAgentBatch, SampleBatch
 from ray.rllib.utils.metrics.metrics_logger import MetricsLogger
 from ray.rllib.utils.typing import EpisodeType, PolicyID
 from ray.tune.registry import register_env
+from rich import inspect, print
 from wandb.sdk.wandb_run import Run
 
 import wandb
-
-# NOTE: Importing this is critical to load all model automatically.
 from gymenvs.explicit_registration import explicit_registration
 from networking.common_lingo import Attack
 from networking.downstream_tasks.deepnets import Classifier
@@ -87,7 +86,7 @@ def argsies():
     ap.add_argument(
         "--csv_path_str",
         # default="./data/mini_wednesday.csv",
-        default="./data/Wednesday.csv",
+        default="./data/Wednesday_sorted.csv",
         type=str,
         help="Path to where the data lies",
     )
@@ -219,10 +218,14 @@ class MyCallbacks(DefaultCallbacks):
         ["num_env_steps_sampled_throughput_per_sec"],
     ]
 
-    def __init__(self, wandb_run: Run) -> None:
+    def __init__(
+        self, wandb_run: Run, evaluate_frequency: int = 1, num_features: int = None
+    ) -> None:
         super().__init__()
         self.logger = setup_logger(__class__.__name__)
         self.wandb_run = wandb_run
+        self.num_features = num_features
+        self.evaluate_frequency = evaluate_frequency
 
     def on_train_result(self, *, algorithm, result: dict, **kwargs):
         # you can mutate the result dict to add new fields to return
@@ -238,6 +241,49 @@ class MyCallbacks(DefaultCallbacks):
 
         if self.wandb_run:
             self.wandb_run.log(report_dict)
+
+        # Evaluate Performance
+        if result["training_iteration"] % self.evaluate_frequency == 0:
+            self._evaluate_performance(algorithm, result["training_iteration"])
+
+    def _evaluate_performance(self, algo, epochs):
+        # Get the environment
+        env_str = algo.config["env"]
+        self.logger.debug(
+            f"Evaluating performance with {env_str} of type {type(env_str)}"
+        )
+
+        policy = algo.get_policy()
+        self.logger.debug(f"Policy is of type {type(policy)}")
+
+        reward_calculator = RandForRewardCalculator(args.pretrained_ranfor)
+        sampler = WeightedSampler(
+            csv_reader, args.sampling_budget, args.weighted_bins_num, labels
+        )
+        feature_factory = NetworkFeatureFactory(args.obs_elements, attacks_to_detect)
+        sampenv = SamplingEnvironment(
+            sampler,
+            reward_calculator=reward_calculator,
+            feature_factory=feature_factory,
+        )
+
+        env = gym.make(
+            env_str,
+            sampling_env=sampenv,
+            num_obs_elements=self.num_features,
+            actions_max_vals=Action(60, 10),
+            action_idx_to_direction={},  # TOREM: Remove with the rest
+        )
+        cur_state = env.reset()
+        num_steps = 12  # TODO: Soft code this
+        for i in tqdm.tqdm(range(num_steps), desc="Evaluating"):
+            action = policy.compute_single_action(cur_state)
+            cur_state, reward, done, info = env.step(action)
+            inspect(info)
+            if done:
+                cur_state = env.reset()
+
+        env.env.change_mode(SamplingEnvironment.MODES.TRAIN)
 
     def on_sample_end(  # type:ignore
         self, *, worker: RolloutWorker, samples: MultiAgentBatch, **kwargs
@@ -283,7 +329,6 @@ def env_wrapper(env) -> gym.Env:
     """
     To my understanding each process will run this independently.
     """
-    # Call the registration
     explicit_registration()
 
     # Specify the NetworkSampleFactor
@@ -398,12 +443,13 @@ if __name__ == "__main__":
     # csv_reader_ref = ray.put(csv_reader)
 
     # Make the environment
-    print("Make the environment")
+    print("Make th1 environment")
 
     register_env("WrappedNetEnv", env_wrapper)
 
     print("Resetting the environment")
     set_all_seeds(args.random_seed)
+    num_features = len(args.obs_elements)
 
     algo = (
         PPOConfig()
@@ -411,7 +457,9 @@ if __name__ == "__main__":
         .resources(num_gpus=1)
         .environment(env="WrappedNetEnv")
         .training(train_batch_size=128)  # How many steps are used to update model
-        .callbacks(lambda: MyCallbacks(wandb_run))  # type : ignore
+        .callbacks(
+            lambda: MyCallbacks(wandb_run, num_features=num_features)
+        )  # type : ignore
         .build()
     )
 
