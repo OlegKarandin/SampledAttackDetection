@@ -48,6 +48,7 @@ from sampleddetection.reward_signals import (
     DNN_RewardCalculator,
     RandForRewardCalculator,
 )
+from rich import traceback
 from sampleddetection.samplers import DynamicWindowSampler
 from sampleddetection.utils import (
     clear_screen,
@@ -55,6 +56,8 @@ from sampleddetection.utils import (
     keychain_retrieve,
     setup_logger,
 )
+traceback.install()
+
 
 TYPE_CHECKING = True
 
