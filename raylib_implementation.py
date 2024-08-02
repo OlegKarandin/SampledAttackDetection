@@ -246,47 +246,6 @@ class MyCallbacks(DefaultCallbacks):
             self.wandb_run.log(report_dict)
 
         # Evaluate Performance
-        if result["training_iteration"] % self.evaluate_frequency == 0:
-            self._evaluate_performance(algorithm, result["training_iteration"])
-
-    def _evaluate_performance(self, algo, epochs):
-        # Get the environment
-        env_str = algo.config["env"]
-        self.logger.debug(
-            f"Evaluating performance with {env_str} of type {type(env_str)}"
-        )
-
-        policy = algo.get_policy()
-        self.logger.debug(f"Policy is of type {type(policy)}")
-
-        reward_calculator = RandForRewardCalculator(args.pretrained_ranfor)
-        sampler = WeightedSampler(
-            csv_reader, args.sampling_budget, args.weighted_bins_num, labels
-        )
-        feature_factory = NetworkFeatureFactory(args.obs_elements, attacks_to_detect)
-        sampenv = SamplingEnvironment(
-            sampler,
-            reward_calculator=reward_calculator,
-            feature_factory=feature_factory,
-        )
-
-        env = gym.make(
-            env_str,
-            sampling_env=sampenv,
-            num_obs_elements=self.num_features,
-            actions_max_vals=Action(60, 10),
-            action_idx_to_direction={},  # TOREM: Remove with the rest
-        )
-        cur_state = env.reset()
-        num_steps = 12  # TODO: Soft code this
-        for i in tqdm.tqdm(range(num_steps), desc="Evaluating"):
-            action = policy.compute_single_action(cur_state)
-            cur_state, reward, done, info = env.step(action)
-            inspect(info)
-            if done:
-                cur_state = env.reset()
-
-        env.env.change_mode(SamplingEnvironment.MODES.TRAIN)
 
     def on_sample_end(  # type:ignore
         self, *, worker: RolloutWorker, samples: MultiAgentBatch, **kwargs
@@ -446,7 +405,6 @@ if __name__ == "__main__":
     # csv_reader_ref = ray.put(csv_reader)
 
     # Make the environment
-    print("Make th1 environment")
 
     register_env("WrappedNetEnv", env_wrapper)
 

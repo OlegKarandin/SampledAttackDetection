@@ -1,9 +1,5 @@
-from enum import Enum
-from typing import Any, NamedTuple
-
-from scapy.all import Packet
-
-import pandas as pd
+from typing import Any
+import pdb
 import json
 from networking.common_lingo import ATTACK_TO_STRING, Attack
 from networking.datastructures.packet_like import PacketLike
@@ -231,6 +227,7 @@ class Flow:
                 data["pkt_len_min"] < 0,
             ]
         ):
+            pdb.set_trace()
             # DUMP all the packets into a files
             print("ERROR: Incorrect values for statistics. Will share them in a dump.")
             with open("dump.csv", "w") as f:

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Tuple, Union
 
 import gymnasium as gym
 import numpy as np
@@ -34,6 +34,7 @@ class GymSamplingEnv(gym.Env):
         sampling_env: SamplingEnvironment,
         num_obs_elements: int,
         actions_max_vals: List[float],
+        # TOREM: `action_idx_to_direction` No longer even being used anymore
         action_idx_to_direction: Dict[int, int],  # TODO: maybe change to simply scaling
     ):
         self.env = sampling_env
@@ -112,9 +113,6 @@ class GymSamplingEnv(gym.Env):
         # We must convv
         return observation, reward, terminated, truncated, info
 
-    # def _get_obs(self, state: State):
-    #     # State will return a list so we just have to return that as well
-    #     return state.get_data_list(self.relevant_datapoints)
 
     def reset(
         self,
