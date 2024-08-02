@@ -1,5 +1,6 @@
 import datetime
 import random
+from enum import Enum
 from logging import DEBUG
 from typing import Any, Sequence, Tuple, Union
 
@@ -27,6 +28,9 @@ class SamplingEnvironment:
     PREVIOUS_AMNT_SAMPLES = 4
     DAY_RIGHT_MARGIN = 1  # CHECK: Must be equal 1 at deployment
 
+    # MODE enum
+    MODES = Enum("MODES", ["TRAIN", "EVAL"])
+
     def __init__(
         self,
         sampler: TSSampler,
@@ -39,6 +43,8 @@ class SamplingEnvironment:
         self.feature_factory = feature_factory
         self.reward_calculator = reward_calculator
 
+        self.mode = self.MODES.TRAIN  # Normally start at train
+
         # Internal representation of State. Will be returned to viewer as in `class State` language
         self.starting_time = float("-inf")
         self.cur_state = State(
@@ -49,6 +55,9 @@ class SamplingEnvironment:
         )
         # CHECK: that this reset call is even necessary
         self.reset()
+
+    def change_mode(self, mode: MODES):
+        self.mode = mode
 
     def step(self, action: Action) -> Tuple[State, float, dict]:
         """
@@ -144,9 +153,18 @@ class SamplingEnvironment:
         )
 
         ### END: Debug section
-        return_reward = self.reward_calculator.calculate(
-            features=arraylike_features, ground_truths=labels
-        )
+        extra_metrics = {}
+        if self.mode == self.MODES.TRAIN:
+            return_reward = self.reward_calculator.calculate(
+                features=arraylike_features, ground_truths=labels
+            )
+        else:
+            return_reward, extra_metrics = self.reward_calculator.calculate_eval(
+                features=arraylike_features, ground_truths=labels
+            )
+
+        # We could add more key-value pairs here
+        extra_obs = {"extra_metrics": extra_metrics}
 
         ### Update new state
         self.cur_state = new_state

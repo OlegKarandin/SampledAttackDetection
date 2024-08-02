@@ -1,11 +1,13 @@
 from abc import ABC, abstractmethod
-from typing import Any, List
+from typing import Dict, Tuple
 
 import joblib as joblib
+import pdb
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
+from sklearn.metrics import confusion_matrix, roc_auc_score
 from torch import nn, optim
 
 from sampleddetection.utils import setup_logger
@@ -18,16 +20,24 @@ class RewardCalculatorLike(ABC):
     """
 
     @abstractmethod
-    def calculate(self, **kwargs) -> float:
+    def calculate(self, **kwargs) -> Tuple[float, Dict]:
         """
         Will return a performance metric based on parameters passed.
-        Paraneters passed will depend a lot on the downstream argument so Ill leave them as a dictionary
+        Parameters passed will depend a lot on the downstream argument so Ill leave them as a dictionary
 
         Returns
         ---------
         - float: Performance metric
+        - dict: For extra metrics for debugging
         """
 
+        pass
+
+    # abstractmethod
+    def calculate_eval(self, **kwargs) -> Tuple[float, Dict]:
+        """
+        Similar as above but for validation and any extra metrics
+        """
         pass
 
 
@@ -88,6 +98,52 @@ class RandForRewardCalculator(RewardCalculatorLike):
         final_loss = -1 * losses.mean().item()
         self.logger.debug(f"Final Losses theselves {final_loss}")
         return final_loss
+
+    def calculate_eval(self, **observations) -> Tuple[float, Dict]:
+        assert isinstance(observations["ground_truths"], np.ndarray)
+        assert isinstance(observations["features"], np.ndarray)
+
+        # Calculate the reward
+        grounded_truths = torch.LongTensor(observations["ground_truths"])
+        features = torch.tensor(observations["features"], dtype=torch.float)
+        features_df = pd.DataFrame(
+            observations["features"], columns=list(self.TRANS_DICT.values())
+        )
+        if grounded_truths.sum() + features.sum() == 0:
+            return -10  # Some default very low value that should mean bad reward
+        pred_probs = self.model.predict_proba(features_df)
+        self.logger.debug(f"Predictions are looking like {pred_probs}")
+        pred_probs = torch.from_numpy(pred_probs)
+        self.logger.debug(
+            f"Tensored Predictions are looking like {pred_probs} with ground_truths : {grounded_truths}"
+        )
+        losses = F.nll_loss(pred_probs, grounded_truths)
+        self.logger.debug(f"Losses theselves {losses}")
+        final_loss = -1 * losses.mean().item()
+        self.logger.debug(f"Final Losses theselves {final_loss}")
+
+        # Calculate accuracy
+        preds = torch.argmax(pred_probs, dim=1)
+        acc = torch.sum(preds == grounded_truths).item() / len(preds)
+        self.logger.debug(f"Accuracy is {acc}")
+
+        # Calculate AUC
+        # pdb.set_trace()
+        # auc = roc_auc_score(grounded_truths, pred_probs[:, 1],multi_class = "ovr")
+        # self.logger.debug(f"AUC is {auc}")
+
+        # Calculate Confusion Matrix
+        cf_matrix = confusion_matrix(grounded_truths, preds)
+        self.logger.debug(f"Confusion Matrix is {confusion_matrix}")
+
+        # Final Return
+        final_dict = {
+            "loss": final_loss,
+            # "auc": auc,
+            "confusion_matrix": cf_matrix,
+        }
+
+        return (final_loss, final_dict)
 
 
 class DNN_RewardCalculator(RewardCalculatorLike):

@@ -18,6 +18,7 @@ import numpy as np
 import ray
 import torch
 import tqdm
+from gymenvs.envs import GymSamplingEnv
 from gymnasium.wrappers.normalize import NormalizeObservation
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
 from ray.rllib.algorithms.ppo import PPOConfig
@@ -34,7 +35,9 @@ from ray.rllib.utils.typing import EpisodeType, PolicyID
 from ray.tune.registry import register_env
 from rich import inspect, print
 from wandb.sdk.wandb_run import Run
+import pdb
 
+from sampleddetection.datastructures import Action, State
 import wandb
 from gymenvs.explicit_registration import explicit_registration
 from networking.common_lingo import Attack
@@ -135,6 +138,12 @@ def argsies():
         default=1600,
         type=int,
         help="Bins for the weighted algorithm",
+    )
+    ap.add_argument(
+        "--evaluation_frequency",
+        default=1,
+        type=int,
+        help="How often to report on a validation set."
     )
 
     # Prelimns
@@ -245,7 +254,6 @@ class MyCallbacks(DefaultCallbacks):
         if self.wandb_run:
             self.wandb_run.log(report_dict)
 
-        # Evaluate Performance
 
     def on_sample_end(  # type:ignore
         self, *, worker: RolloutWorker, samples: MultiAgentBatch, **kwargs
@@ -285,6 +293,35 @@ class MyCallbacks(DefaultCallbacks):
     #
     # ) -> None:
     #     pass
+
+
+def evaluate_performance(
+    algo, env: GymSamplingEnv, cur_epoch: int, num_evals: int, num_steps: int
+):
+    # Get the environment
+    env_str = algo.config["env"]
+    logger.debug(
+        f"Evaluating performance with {env_str} of type {type(env_str)} for epoch {cur_epoch}"
+    )
+
+    policy = algo.get_policy()
+    observations, agg_info  = env.reset()
+
+    sampling_env = env.env.env.env.env # type:ignore | Lots of wrapping
+    sampling_env.change_mode(SamplingEnvironment.MODES.EVAL)
+    for _ in range(num_evals):
+        for _ in tqdm.tqdm(range(num_steps), desc="Evaluating"):
+            action, _, _ = policy.compute_single_action(observations)
+            observations, reward, done, truncated, info = env.step(action)
+            logger.debug(f"We can report that cur_state if o type {type(observations)}")
+            # Remove this assertions after a bit
+            assert isinstance(observations, np.ndarray), "Observations are not of type np.ndarray"            
+            inspect(info)
+            if done:
+                observations, info = env.reset()
+                break
+
+    sampling_env.change_mode(SamplingEnvironment.MODES.TRAIN)
 
 
 def env_wrapper(env) -> gym.Env:
@@ -405,8 +442,22 @@ if __name__ == "__main__":
     # csv_reader_ref = ray.put(csv_reader)
 
     # Make the environment
-
     register_env("WrappedNetEnv", env_wrapper)
+
+    reward_calculator = RandForRewardCalculator(args.pretrained_ranfor)
+    feature_factory = NetworkFeatureFactory(args.obs_elements, attacks_to_detect)
+    sampenv = SamplingEnvironment(
+        global_sampler,
+        reward_calculator=reward_calculator,
+        feature_factory=feature_factory,
+    )
+    evaluating_env = gym.make(
+        "NetEnv",
+        sampling_env=sampenv,
+        num_obs_elements=len(args.obs_elements),
+        actions_max_vals=Action(60, 10),
+        action_idx_to_direction={},  # TOREM: Remove with the rest
+    )
 
     print("Resetting the environment")
     set_all_seeds(args.random_seed)
@@ -451,6 +502,10 @@ if __name__ == "__main__":
         policy_loss: {desired_dict.get('info.learner.default_policy.learner_stats.policy_loss', 'N/A')}
         vf_loss: {desired_dict.get('info.learner.default_policy.learner_stats.vf_loss', 'N/A')}
         """
+        )
+        # Will now eevaluate the performance of the model
+        evaluate_performance(
+            algo, evaluating_env, i, args.evaluation_frequency, args.sampling_budget
         )
     print("Training is finished")
 
