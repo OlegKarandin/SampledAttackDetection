@@ -35,17 +35,28 @@ class NetworkSampleFactory(SampleFactory[CSVSample]):
 
 class NetworkFeatureFactory(FeatureFactory[PacketLike]):
 
-    def __init__(self, observable_features: Tuple[str], labels: Tuple[Attack, ...]):
+    def __init__(
+        self,
+        observable_features: Tuple[str],
+        labels: Tuple[Attack, ...],
+        binary_labels: bool = False,
+    ):
+        self.binary_labels = binary_labels
         self.logger = setup_logger(__class__.__name__)
         self.observable_features = observable_features
-        self.expected_labels = (
+        self.expected_labels = ( # Labels expected in DS
             [Attack.BENIGN] + list(labels) if Attack.BENIGN not in labels else labels
         )
         self.logger.info(f"Expected labels are {self.expected_labels}")
-        self.labels_to_idx: Dict[Attack, int] = {k: i for i, k in enumerate(labels)}
-        self.strings_to_idx: Dict[str, int] = {
-            ATTACK_TO_STRING[k]: i for i, k in enumerate(self.expected_labels)
-        }
+        # self.labels_to_idx: Dict[Attack, int] = {k: i for i, k in enumerate(labels)}
+        if self.binary_labels:
+            self.strings_to_idx: Dict[str, int] = {
+                ATTACK_TO_STRING[k]: (0 if k == Attack.BENIGN else 1) for i, k in enumerate(self.expected_labels)
+            }
+        else:
+            self.strings_to_idx: Dict[str, int] = {
+                ATTACK_TO_STRING[k]: k.value for i, k in enumerate(self.expected_labels)
+            }
         # For t
 
     def make_feature_and_label(
@@ -57,7 +68,6 @@ class NetworkFeatureFactory(FeatureFactory[PacketLike]):
         for raw_sample in raw_sample_list:
             curt = time()
             flowsession.on_packet_received(raw_sample)
-            )
 
         # Once all the flow is retrieved we create an array-like
         data: Dict[Tuple, Dict] = flowsession.get_data()

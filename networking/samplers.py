@@ -24,6 +24,7 @@ class WeightedSampler(BasicSampler):
         sampling_budget: int,
         num_bins: int,
         labels: Sequence,
+        binary_labels: bool = False,
         lowest_resolution: float = 1e-6,
     ):
         super().__init__(timeseries_rdr, sampling_budget,  lowest_resolution)
@@ -38,8 +39,18 @@ class WeightedSampler(BasicSampler):
           self.perbin_weight
         ) = self._generate_regions(num_bins, binary_labels)
     def _generate_regions(
-        self, num_bins: int
+        self, num_bins: int, binary_labels: bool = False
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Will generate the bins and weights for the weighted sampler
+        Args:
+            num_bins: The amount of bins to generate
+            binary_labels: Whether or not to use binary labels
+        Returns:
+            bins_times: The times of the bins
+            bins_labels: The labels of the bins
+            perunit_weight: The weight of each bin
+        """
         cache_dir = ".cache_dir/bins.npy"
         exists_dir = Path(cache_dir).exists()
         if self.SHOULD_CACHE and exists_dir == True:
@@ -48,10 +59,10 @@ class WeightedSampler(BasicSampler):
             ret_info = np.load(cache_dir)
             return ret_info[0], ret_info[1].astype(np.int8), ret_info[2]
 
-        # Calculate all divisions
+        # Preparete for the loop
         fin_time = self.timeseries_rdr.fin_time
         init_time = self.timeseries_rdr.init_time
-        ret_info = np.linspace(init_time, fin_time, num_bins+1)
+        ret_info = np.linspace(init_time, fin_time, num_bins)
         num_samples_g = 1000
         if binary_labels:
             labels_dict = {
@@ -74,18 +85,6 @@ class WeightedSampler(BasicSampler):
 
         # TODO: Have to figure out how to better add the left bound
         lidx = 0
-        num_samples_g = 1000
-
-        # labels_map = {
-        #     Attack.BENIGN: Attack.BENIGN.value,
-        #     Attack.HULK: Attack.HULK.value,
-        #     Attack.GOLDENEYE: Attack.GOLDENEYE.value,
-        #     Attack.SLOWLORIS: Attack.SLOWLORIS.value,
-        #     Attack.SLOWHTTPTEST: Attack.SLOWHTTPTEST.value,
-        # }
-        labels_map = [l.value for l in self.labels]
-
-        # Have to figure out how to better add the left bound
         bins_times = [self.timeseries_rdr.init_time]
         bins_enumVals = [Attack.BENIGN.value]
         for i, b in enumerate(tqdm(ret_info[:-1], desc="Generating bins")):
@@ -109,35 +108,35 @@ class WeightedSampler(BasicSampler):
                 )
 
             lidx = ridx
-            bins_labels.append(label)
+            bins_enumVals.append(label)
 
         # Distribute sampling weights
-        bl_np = np.array(bins_labels, dtype=np.int8)
-        uni_weight = 1 / len(labels_map)
-        perunit_weigth = np.zeros_like(bl_np, dtype=np.float32)
-        for l in labels_map:
-            idxs = np.where(bl_np == l)[0]
-            perunit_weigth[idxs] = uni_weight / len(idxs)
+        bin_labels_np = np.array(bins_enumVals, dtype=np.int8)
+        unit_weight = 1 / len(attackAvail_enumVals)
+        perunit_weight = np.zeros_like(bin_labels_np, dtype=np.float32)
+        for l in attackAvail_enumVals:
+            idxs = np.where(bin_labels_np == l)[0]
+            if len(idxs) == 0:
+                continue
+            perunit_weight[idxs] = unit_weight / len(idxs)
+        bin_times_np = np.array(bins_times, dtype=np.float32)
 
-        # And lets plot it as a histogram just for funsies
-        # bt_np = np.array(bins_times)
-        # bl_np = np.array(bins_labels, dtype=np.int8)
-        # bl_idxs = [bl_np[np.where(bl_np == l)] for l in labels_map.values()]
-        # bts = [bt_np[np.where(bl_np == l)] for l in labels_map.values()]
-        #
-        # fig = plt.figure(figsize=(8, 19))
+        # # For debugging
+        # labelGroup_bin_times = [bin_times_np[np.where(bin_labels_np == l)] for l in labels_dict.values()]
+        # plt.figure(figsize=(8, 19))
         # plt.tight_layout()
-        # for i, l in enumerate(labels_map.keys()):
-        #     print(f"Size of bts[{l}] is {len(bts[i])}")
-        #     plt.scatter(bts[i], np.full_like(bts[i], 1), label=ATTACK_TO_STRING[l])
+        # for i, l in enumerate(labels_dict.keys()):
+        #     print(f"Size of bts[{l}] is {len(labelGroup_bin_times[i])}")
+        #     plt.scatter(labelGroup_bin_times[i], np.full_like(labelGroup_bin_times[i], 1), label=ATTACK_TO_STRING[l])
         # plt.legend()
         # plt.show()
-        pdb.set_trace()
+
         if self.SHOULD_CACHE:
             # Make parent
             Path("./.cache_dir/").mkdir(parents=True, exist_ok=True)
-            np.save(cache_dir, (bins_times, bins_labels, perunit_weigth))
-        return np.array(bins_times, dtype=np.float32), bl_np, perunit_weigth
+            np.save(cache_dir, (bin_times_np, bin_labels_np, perunit_weight))
+        return bin_times_np, bin_labels_np, perunit_weight
+
 
     def sample_starting_point(self, margin: float = 0.95) -> float:
         """
