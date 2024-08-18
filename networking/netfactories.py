@@ -46,51 +46,34 @@ class NetworkFeatureFactory(FeatureFactory[PacketLike]):
         self.strings_to_idx: Dict[str, int] = {
             ATTACK_TO_STRING[k]: i for i, k in enumerate(self.expected_labels)
         }
-        self.logger.debug(f"Labels are in order {self.strings_to_idx}")
         # For t
 
     def make_feature_and_label(
         self, raw_sample_list: Sequence[PacketLike]
     ) -> Tuple[np.ndarray, np.ndarray]:
-        self.logger.debug(
-            f"Constructing features and labels for {len(raw_sample_list)} packets"
-        )
         flowsession = SampledFlowSession()
         flowsession.reset()
 
         for raw_sample in raw_sample_list:
             curt = time()
             flowsession.on_packet_received(raw_sample)
-            self.logger.debug(
-                f"Time to add packet with timestamp {raw_sample.time} (from make_feature_and_label) is {time() - curt}"
             )
 
         # Once all the flow is retrieved we create an array-like
-        self.logger.debug(
-            f"Now calculating all the data for flow session with {len(flowsession.flows)}"
-        )
         data: Dict[Tuple, Dict] = flowsession.get_data()
 
         raw_features = []
         raw_labels = []
         # TODO:: Probably check for empty returns
-        self.logger.debug(f"We have obtaine {len(data)} flows to get info from.")
         for flow_key, feat_dict in data.items():
             # Avoid packets we dont care for
             label_str = feat_dict["label"]
             label_enum = STRING_TO_ATTACKS[label_str]
             if label_enum not in self.expected_labels:
-                self.logger.debug(f"Skipping on label_id {label_enum}")
                 continue
             # Fetch all features and labels as specified by keys in self.observable_features
             raw_features.append(self._get_flow_feats(feat_dict))
-            self.logger.debug(
-                f"(flow_key:{flow_key}) Going through label string {label_str}"
-                f" with id {self.strings_to_idx[label_str]}"
-            )
             raw_labels.append(self.strings_to_idx[label_str])
-
-        self.logger.debug(f"Raw labels {raw_labels}")
 
         # CHECK: if this is a valid way of giving it a default state
         if len(raw_labels) == 0 and len(raw_features) == 0:
@@ -102,9 +85,6 @@ class NetworkFeatureFactory(FeatureFactory[PacketLike]):
             arraylike_features = np.array(raw_features)
             arraylike_labels = np.array(raw_labels, dtype=np.int16)
 
-        self.logger.debug(
-            f"Our features from a sample looks like:\n{arraylike_features}"
-        )
         return arraylike_features, arraylike_labels
 
     def get_feature_strlist(self):

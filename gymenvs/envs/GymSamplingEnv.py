@@ -87,13 +87,6 @@ class GymSamplingEnv(gym.Env):
             - info (dict): unsure
         """
 
-        # CHECK: since action_idx is of type ActType
-        # maybe we have to check its provenance
-        self.logger.debug(
-            f"Gym Envirnonment is receiving action type ({type(action)}) that looks like: {action}"
-        )
-        # actual_action = int(self.action_idx_to_direction[action])
-
         # Create Action in same language
         action_message = Action(winskip_delta=action[0], winlen_delta=action[1])
 

@@ -74,19 +74,12 @@ class SamplingEnvironment:
             self.cur_state.window_skip > 0,
             self.cur_state.window_length > 0,
         ]
-        # self.logger.debug(
-        #     f"Starting cur_time is {self.cur_state.time_point} of type {type(self.cur_state.time_point)}"
-        # )
         assert all(status), (
             "Make sure you initialize enviornment properly\n Specifically:"
             f"\n\ttime_point={self.cur_state.time_point}"
             f"\n\twindow_skip={self.cur_state.window_skip}"
             f"\n\twindow_length={self.cur_state.window_length}"
         )
-
-        # self.logger.debug(
-        #     f"The action is of type {type(action)} and looks like {action} with element-type {type(action.winlen_delta)}"
-        # )
 
         ### Preprocess data for new state
         window_skip = clamp(
@@ -95,12 +88,6 @@ class SamplingEnvironment:
             self.WINDOW_SKIP_RANGE[1],
         )
         cur_time = self.cur_state.time_point + self.cur_state.window_skip
-        # self.logger.debug(
-        #     f"window_skip ({window_skip}) itself is of type {type(window_skip)}"
-        # )
-        # self.logger.debug(
-        #     f"After window_skip addition  cur_time is {cur_time} of type {type(cur_time)}"
-        # )
         self.cur_state.time_point = cur_time
         # Onbserve after the rest
         window_length = clamp(
@@ -110,26 +97,14 @@ class SamplingEnvironment:
         )
 
         ### ✨ Time to observe (take a step)
-        # self.logger.debug(
-        #     f"Sampling about to take place at current time {cur_time} (of type {type(cur_time)}) with window lenght {window_length}"
-        # )
         # TODO: Ensure we can remove window_skipo later, its not being used already
         new_samples = self.sampler.sample(
             cur_time, window_skip, window_length, first_sample=False
         )
-        # if len(new_samples) >= 0:
-        #     self.logger.debug(f"Obtained {len(new_samples)} from our sampler")
-        # else:
-        #     self.logger.warn(f"Length of samples is 0")
-        #
         arraylike_features, labels = self.feature_factory.make_feature_and_label(
             new_samples
         )
-        self.logger.debug(
-            f"We got {len(labels)} samples at cur_time {cur_time} with window_skip {window_skip} and window_length {window_length}"
-        )
 
-        # self.logger.debug("In preparation to go into State")
         # Update the state to new observations
         new_state = State(
             # Time point at which next step will start
@@ -139,20 +114,6 @@ class SamplingEnvironment:
             observations=arraylike_features,
         )
 
-        ### START: Debug section
-        # Get statistics of iat between between first and last sampling points
-        # Should give us an idea of where our algorithm resides to be.
-        extra_obs = {}
-        # extra_obs = self.sampler.window_statistics(cur_time, window_skip, window_length)
-
-        # Show current staste
-        _debug_ts = datetime.datetime.fromtimestamp(cur_time)
-        _debug_ts_str = _debug_ts.strftime("%H:%M:%S")
-        self.logger.debug(
-            f"Our current window_skip {window_skip} and window length {window_length} for timepoint {_debug_ts_str}"
-        )
-
-        ### END: Debug section
         extra_metrics = {}
         if self.mode == self.MODES.TRAIN:
             return_reward = self.reward_calculator.calculate(
@@ -190,7 +151,6 @@ class SamplingEnvironment:
             first_sample=True,
         )
 
-        # self.logger.debug(f"Sampled for SamplingEnvironment reset")
 
         arraylike_features, label = self.feature_factory.make_feature_and_label(samples)
 
@@ -223,13 +183,11 @@ class SamplingEnvironment:
         Returns nothing but sets a new `self.cur_state`
         """
 
-        # self.logger.debug("Initializing triad")
         min_time, max_time = (
             self.sampler.init_time,
             self.sampler.fin_time,
         )
 
-        # self.logger.debug("Restarting the environment")
         assert min_time != max_time, "Cap Reader not initialized Properly"
 
         # Starting Time
@@ -244,12 +202,8 @@ class SamplingEnvironment:
             assert within(
                 starting_time, min_time, max_time * self.DAY_RIGHT_MARGIN
             ), f"Stating time {starting_time} out of range [{min_time},{max_time}]"
-            # self.logger.debug(f"Preset, setting")
             self.cur_state.time_point = starting_time
 
-        # self.logger.debug(
-        #     f"Initialized starting_time to {self.cur_state.time_point} with type {type(self.cur_state.time_point)}"
-        # )
         # Winskip
         if winskip == None:
             self.cur_state.window_skip = random.uniform(

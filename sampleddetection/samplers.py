@@ -22,7 +22,6 @@ class TSSampler(ABC):
         window_skip: float,
         window_length: float,
         initial_precise: bool = False,
-        first_sample: bool = False,
     ) -> Sequence[Any]:
         pass
 
@@ -106,8 +105,6 @@ class DynamicWindowSampler(TSSampler):
         initial_precise: bool = False,
         first_sample: bool = False,
     ) -> Sequence[Any]:
-        # ) -> SampledFlowSession:
-        # ) -> pd.DataFrame:
         """
         Will just return a list of samples
 

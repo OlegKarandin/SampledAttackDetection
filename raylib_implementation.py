@@ -10,7 +10,7 @@ import random
 from argparse import ArgumentParser
 from pathlib import Path
 from time import time
-from typing import Any, Dict, Optional, Union
+from typing import Dict, Optional, Union
 
 import gymnasium as gym
 import joblib as joblib
@@ -18,8 +18,6 @@ import numpy as np
 import ray
 import torch
 import tqdm
-from gymenvs.envs import GymSamplingEnv
-from gymnasium.wrappers.normalize import NormalizeObservation
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
 from ray.rllib.algorithms.ppo import PPOConfig
 from ray.rllib.core.rl_module.rl_module import RLModule
@@ -29,36 +27,30 @@ from ray.rllib.evaluation import RolloutWorker
 from ray.rllib.evaluation.episode import Episode
 from ray.rllib.evaluation.episode_v2 import EpisodeV2
 from ray.rllib.policy.policy import Policy
-from ray.rllib.policy.sample_batch import MultiAgentBatch, SampleBatch
+from ray.rllib.policy.sample_batch import MultiAgentBatch
 from ray.rllib.utils.metrics.metrics_logger import MetricsLogger
 from ray.rllib.utils.typing import EpisodeType, PolicyID
 from ray.tune.registry import register_env
-from rich import inspect, print
+from rich import inspect, print, traceback
 from wandb.sdk.wandb_run import Run
-import pdb
 
-from sampleddetection.datastructures import Action, State
 import wandb
+from gymenvs.envs import GymSamplingEnv
 from gymenvs.explicit_registration import explicit_registration
 from networking.common_lingo import Attack
-from networking.downstream_tasks.deepnets import Classifier
-from networking.netfactories import NetworkFeatureFactory, NetworkSampleFactory
+from networking.netfactories import NetworkFeatureFactory
 from networking.readers import NetCSVReader
 from networking.samplers import WeightedSampler
 from sampleddetection.datastructures import Action
 from sampleddetection.environments import SamplingEnvironment
-from sampleddetection.reward_signals import (
-    DNN_RewardCalculator,
-    RandForRewardCalculator,
-)
-from rich import traceback
-from sampleddetection.samplers import DynamicWindowSampler
+from sampleddetection.reward_signals import RandForRewardCalculator
 from sampleddetection.utils import (
     clear_screen,
     get_keys_of_interest,
     keychain_retrieve,
     setup_logger,
 )
+
 traceback.install()
 
 
@@ -143,7 +135,7 @@ def argsies():
         "--evaluation_frequency",
         default=1,
         type=int,
-        help="How often to report on a validation set."
+        help="How often to report on a validation set.",
     )
 
     # Prelimns
@@ -199,7 +191,7 @@ def train_result_callback(info):
     wandb.log()
 
 
-class MyCallbacks(DefaultCallbacks):
+class BigBrother(DefaultCallbacks):
 
     LIST_OF_INTEREST = [
         ["env_runners", "episode_reward_min"],
@@ -315,7 +307,9 @@ def evaluate_performance(
             observations, reward, done, truncated, info = env.step(action)
             logger.debug(f"We can report that cur_state if o type {type(observations)}")
             # Remove this assertions after a bit
-            assert isinstance(observations, np.ndarray), "Observations are not of type np.ndarray"            
+            assert isinstance(
+                observations, np.ndarray
+            ), "Observations are not of type np.ndarray"
             inspect(info)
             if done:
                 observations, info = env.reset()
@@ -376,8 +370,6 @@ if __name__ == "__main__":
     print(f"Do we have epochs? {args.epochs}")
 
     # Make the logger
-    # logging.basicConfig(level=logging.DEBUG)
-    # ray_logger = logging.getLogger("ray")
     # ray_logger.setLevel(logging.WARNING)
     logger = setup_logger(__name__)
     logger.info("Starting main part of script.")
@@ -470,7 +462,7 @@ if __name__ == "__main__":
         .environment(env="WrappedNetEnv")
         .training(train_batch_size=128)  # How many steps are used to update model
         .callbacks(
-            lambda: MyCallbacks(wandb_run, num_features=num_features)
+            lambda: BigBrother(wandb_run, num_features=num_features)
         )  # type : ignore
         .build()
     )
