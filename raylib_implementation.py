@@ -121,9 +121,15 @@ def argsies():
     # Random forst
     ap.add_argument(
         "--pretrained_ranfor",
-        default="./models/multinary_detection_model.joblib",
+        default="./models/binary_detection_model.joblib",
         type=str,
         help="Pretrained random forest model",
+    )
+    ap.add_argument(
+        "--binary_classification",
+        default=True,
+        action="store_true",
+        help="If true will use binary classification",
     )
     ap.add_argument(
         "--weighted_bins_num",
@@ -325,7 +331,9 @@ def env_wrapper(env) -> gym.Env:
     explicit_registration()
 
     # Specify the NetworkSampleFactor
-    feature_factory = NetworkFeatureFactory(args.obs_elements, attacks_to_detect)
+    feature_factory = NetworkFeatureFactory(
+        args.obs_elements, attacks_to_detect, args.binary_classification
+    )
 
     num_features = len(args.obs_elements)
 
@@ -338,7 +346,9 @@ def env_wrapper(env) -> gym.Env:
     # reward_calculator = DNN_RewardCalculator(classifier)
 
     # Use the random forest creation
-    reward_calculator = RandForRewardCalculator(args.pretrained_ranfor)
+    reward_calculator = RandForRewardCalculator(
+        args.pretrained_ranfor, args.binary_classification
+    )
 
     # CHECK: Do we want to use NoReplacementSampler or DynamicSampler?
     # Remember that NoReplacementSampler has quite the overhead
@@ -428,7 +438,11 @@ if __name__ == "__main__":
         Attack.SLOWHTTPTEST,
     ]
     global_sampler = WeightedSampler(
-        csv_reader, args.sampling_budget, args.weighted_bins_num, labels
+        csv_reader,
+        args.sampling_budget,
+        args.weighted_bins_num,
+        labels,
+        binary_labels=args.binary_classification,
     )
     global_sampler_ref = ray.put(global_sampler)
     # csv_reader_ref = ray.put(csv_reader)
@@ -436,8 +450,12 @@ if __name__ == "__main__":
     # Make the environment
     register_env("WrappedNetEnv", env_wrapper)
 
-    reward_calculator = RandForRewardCalculator(args.pretrained_ranfor)
-    feature_factory = NetworkFeatureFactory(args.obs_elements, attacks_to_detect)
+    reward_calculator = RandForRewardCalculator(
+        args.pretrained_ranfor, args.binary_classification
+    )
+    feature_factory = NetworkFeatureFactory(
+        args.obs_elements, attacks_to_detect, args.binary_classification
+    )
     sampenv = SamplingEnvironment(
         global_sampler,
         reward_calculator=reward_calculator,

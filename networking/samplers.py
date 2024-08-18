@@ -10,9 +10,9 @@ from tqdm import tqdm
 from sampleddetection.utils import setup_logger
 
 
-class WeightedSampler(DynamicWindowSampler):
+class WeightedSampler(BasicSampler):
     """
-    Assumes that we are dealing with unequally distributes labels
+    Assumes that we are dealing with unequally distributed labels
     Expects its timeseries_rdr to contain weights for different time windows
     """
 
@@ -26,28 +26,17 @@ class WeightedSampler(DynamicWindowSampler):
         labels: Sequence,
         lowest_resolution: float = 1e-6,
     ):
-        self.sampling_regions = []
-        self.sr_weights = []
-        self.timeseries_rdr = timeseries_rdr
-        self.logger = setup_logger(__class__.__name__)
+        super().__init__(timeseries_rdr, sampling_budget,  lowest_resolution)
         self.labels = labels
         self.logger.info(
-            "Going to generate the weights for time windows. This will take a while"
-        )
-        reg_results = self._generate_regions(num_bins)
-        self.bins_times, self.bins_labels, self.perbin_weight = reg_results
-        self.bins_labels = self.bins_labels.astype(np.int8)
-        self.logger.info("Calculated weights.")
-
-        # Save bin histogram
-        self.bin_counts = np.zeros_like(self.perbin_weight)
-
-        super().__init__(
-            timeseries_rdr,
-            sampling_budget,
-            lowest_resolution,
+            "Generating the weights for sampling at time windows. This will take a while"
         )
 
+        (
+          self.bins_times,
+          self.bins_labels,
+          self.perbin_weight
+        ) = self._generate_regions(num_bins, binary_labels)
     def _generate_regions(
         self, num_bins: int
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -62,7 +51,28 @@ class WeightedSampler(DynamicWindowSampler):
         # Calculate all divisions
         fin_time = self.timeseries_rdr.fin_time
         init_time = self.timeseries_rdr.init_time
-        ret_info = np.linspace(init_time, fin_time, num_bins)
+        ret_info = np.linspace(init_time, fin_time, num_bins+1)
+        num_samples_g = 1000
+        if binary_labels:
+            labels_dict = {
+                Attack.BENIGN: Attack.BENIGN.value,
+                Attack.GENERAL: Attack.GENERAL.value,
+            }
+        else:
+            labels_dict = {
+                Attack.BENIGN: Attack.BENIGN.value,
+                Attack.HULK: Attack.HULK.value,
+                Attack.GOLDENEYE: Attack.GOLDENEYE.value,
+                Attack.SLOWLORIS: Attack.SLOWLORIS.value,
+                Attack.SLOWHTTPTEST: Attack.SLOWHTTPTEST.value,
+            }
+        attackAvail_enumVals = (
+            [l.value for l in self.labels]
+            if not binary_labels
+            else [Attack.BENIGN.value, Attack.GENERAL.value]
+        )
+
+        # TODO: Have to figure out how to better add the left bound
         lidx = 0
         num_samples_g = 1000
 
@@ -77,21 +87,26 @@ class WeightedSampler(DynamicWindowSampler):
 
         # Have to figure out how to better add the left bound
         bins_times = [self.timeseries_rdr.init_time]
-        bins_labels = [Attack.BENIGN.value]
-        for i, b in enumerate(ret_info):
+        bins_enumVals = [Attack.BENIGN.value]
+        for i, b in enumerate(tqdm(ret_info[:-1], desc="Generating bins")):
             if i == 0:
                 continue
             # Find the timestamp
             ridx = binary_search(self.timeseries_rdr, b)
             bins_times.append(b)
 
-            # Just grab the first num_samples packets here and uset them to decide
+            # Decide label
+            # Just grab the first num_samples packets here and use them to decide
             num_samples = min(num_samples_g, ridx - lidx)
             packs = self.timeseries_rdr[lidx : lidx + num_samples]
             packs_lbls = np.array([p.label.value for p in packs], dtype=np.int8)
             label = Attack.BENIGN.value  # By default
             if sum(packs_lbls == Attack.BENIGN.value) != num_samples:
-                label = packs_lbls[packs_lbls != Attack.BENIGN.value][0]
+                label = (
+                    packs_lbls[packs_lbls != Attack.BENIGN.value][0]
+                    if not binary_labels
+                    else Attack.GENERAL.value
+                )
 
             lidx = ridx
             bins_labels.append(label)
@@ -124,35 +139,38 @@ class WeightedSampler(DynamicWindowSampler):
             np.save(cache_dir, (bins_times, bins_labels, perunit_weigth))
         return np.array(bins_times, dtype=np.float32), bl_np, perunit_weigth
 
+    def sample_starting_point(self, margin: float = 0.95) -> float:
+        """
+        Will take weights calcualted in _generate_regions and return a random point between the first and last
+        but sampled according to the weights
+        """
+        # Ensure that the weights are normalized,
+        assert np.isclose(np.sum(self.perbin_weight), 1), "Weights are not normalized"
+        choice_idx = np.random.choice(
+            # -2 is just so that we can calculate bin time in next line
+            range(len(self.bins_times)), 1, p=self.perbin_weight
+        ).item()
+        bin_time = self.bins_times[choice_idx]
+        # We will sample within it now
+        sample_time = np.random.uniform(bin_time, self.bins_times[choice_idx + 1])
+        assert isinstance(sample_time,float)
+        return sample_time
+
+        
     def sample(
         self,
         starting_time: float,
         window_skip: float,
         window_length: float,
         initial_precise: bool = False,
-        first_sample: bool = False,
     ) -> Sequence[Any]:
-        # We first make sure that this is the first sample
-        # Chose from one of the bins
-        norm_probs = self.perbin_weight[1:] / self.perbin_weight[1:].sum()
-        choice_idx = np.random.choice(
-            range(len(self.bins_times) - 1), 1, p=norm_probs
-        ).item()
-        ltime = self.bins_times[choice_idx]
-        rtime = self.bins_times[choice_idx + 1]
-
-        # If we are on our first sample we are expected to chose it ourselves
-        adj_starting_time = starting_time
-        if first_sample == True:
-            human_readable = datetime.datetime.fromtimestamp(starting_time)
-            adj_starting_time = np.random.uniform(ltime, rtime, 1).item()
-
-        human_readable = datetime.datetime.fromtimestamp(adj_starting_time)
 
         return super().sample(
-            adj_starting_time, window_skip, window_length, initial_precise
+            starting_time, window_skip, window_length, initial_precise
         )
 
+    # CHECK: Havent refactored it in a while compared to surrounding code
+    # Maybe there are changes pending here
     def sample_debug(
         self,
         starting_time: float,

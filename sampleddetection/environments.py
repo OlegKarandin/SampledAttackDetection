@@ -99,7 +99,7 @@ class SamplingEnvironment:
         ### ✨ Time to observe (take a step)
         # TODO: Ensure we can remove window_skipo later, its not being used already
         new_samples = self.sampler.sample(
-            cur_time, window_skip, window_length, first_sample=False
+            cur_time, window_skip, window_length#, first_sample=False
         )
         arraylike_features, labels = self.feature_factory.make_feature_and_label(
             new_samples
@@ -148,7 +148,7 @@ class SamplingEnvironment:
             self.cur_state.time_point,
             self.cur_state.window_skip,
             self.cur_state.window_length,
-            first_sample=True,
+            # first_sample=True,
         )
 
 
@@ -192,12 +192,13 @@ class SamplingEnvironment:
 
         # Starting Time
         if starting_time == None:
-            # self.logger.debug(f"Unset, setting")
-            self.cur_state.time_point = random.uniform(
-                min_time,
-                min_time + (max_time - min_time) * self.DAY_RIGHT_MARGIN,
-            )
-            # self.logger.debug(f"Unset, ensuring {type(self.cur_state.time_point)}")
+            # TOREM: 
+            # self.cur_state.time_point = random.uniform(
+            #     min_time,
+            #     min_time + (max_time - min_time) * self.DAY_RIGHT_MARGIN,
+            # )
+            self.cur_state.time_point = self.sampler.sample_starting_point()
+        
         else:
             assert within(
                 starting_time, min_time, max_time * self.DAY_RIGHT_MARGIN
