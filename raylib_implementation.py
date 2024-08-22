@@ -473,7 +473,7 @@ if __name__ == "__main__":
 
     algo = (
         PPOConfig()
-        .env_runners(num_env_runners=1)
+        .env_runners(num_env_runners=1, sample_timeout_s=3600)
         .resources(num_gpus=1)
         .environment(env="WrappedNetEnv")
         .training(train_batch_size=128)  # How many steps are used to update model
