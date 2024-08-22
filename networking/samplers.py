@@ -3,6 +3,7 @@ from typing import Any, Sequence, Tuple
 
 import numpy as np
 
+import pdb
 from networking.common_lingo import Attack
 from sampleddetection.readers import AbstractTimeSeriesReader
 from sampleddetection.samplers import BasicSampler , binary_search
@@ -64,19 +65,23 @@ class WeightedSampler(BasicSampler):
         init_time = self.timeseries_rdr.init_time
         ret_info = np.linspace(init_time, fin_time, num_bins)
         num_samples_g = 1000
-        if binary_labels:
-            labels_dict = {
-                Attack.BENIGN: Attack.BENIGN.value,
-                Attack.GENERAL: Attack.GENERAL.value,
-            }
-        else:
-            labels_dict = {
-                Attack.BENIGN: Attack.BENIGN.value,
-                Attack.HULK: Attack.HULK.value,
-                Attack.GOLDENEYE: Attack.GOLDENEYE.value,
-                Attack.SLOWLORIS: Attack.SLOWLORIS.value,
-                Attack.SLOWHTTPTEST: Attack.SLOWHTTPTEST.value,
-            }
+
+        # DEBUG: 1/2
+        # if binary_labels:
+        #     labels_dict = {
+        #         Attack.BENIGN: Attack.BENIGN.value,
+        #         Attack.GENERAL: Attack.GENERAL.value,
+        #     }
+        # else:
+        #     labels_dict = {
+        #         Attack.BENIGN: Attack.BENIGN.value,
+        #         Attack.HULK: Attack.HULK.value,
+        #         Attack.GOLDENEYE: Attack.GOLDENEYE.value,
+        #         Attack.SLOWLORIS: Attack.SLOWLORIS.value,
+        #         Attack.SLOWHTTPTEST: Attack.SLOWHTTPTEST.value,
+        #     }
+        #     
+
         attackAvail_enumVals = (
             [l.value for l in self.labels]
             if not binary_labels
@@ -121,7 +126,7 @@ class WeightedSampler(BasicSampler):
             perunit_weight[idxs] = unit_weight / len(idxs)
         bin_times_np = np.array(bins_times, dtype=np.float32)
 
-        # # For debugging
+        # DEBUG: 2/2
         # labelGroup_bin_times = [bin_times_np[np.where(bin_labels_np == l)] for l in labels_dict.values()]
         # plt.figure(figsize=(8, 19))
         # plt.tight_layout()

@@ -377,12 +377,10 @@ def env_wrapper(env) -> gym.Env:
 
 if __name__ == "__main__":
     args = argsies()
-    print(f"Do we have epochs? {args.epochs}")
 
-    # Make the logger
-    # ray_logger.setLevel(logging.WARNING)
     logger = setup_logger(__name__)
     logger.info("Starting main part of script.")
+    logger.info(f"Will run for {args.epochs} ")
 
     # Initialize Wandb Logger
     wandb_run = None

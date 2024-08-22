@@ -36,7 +36,7 @@ class Flow:
         # DEBUG:remove this logger pls
         # self.logger = setup_logger(__class__.__name__, overwrite=False)
 
-        self.packets = []
+        self.packets: Sequence[Tuple[PacketLike, PacketDirection]] = []
         self.flow_interarrival_time = []
         self.latest_timestamp = 0
         self.start_timestamp = 0
