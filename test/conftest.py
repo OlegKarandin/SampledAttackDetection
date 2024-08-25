@@ -32,3 +32,16 @@ def pytest_addoption(parser):
         default=1.0,
         help="Maximum IAT to add a packet to an existing flow. Exceeding it creates a new flow with same key.",
     )
+    # Negative Statistics Trouble Shooting
+    parser.addoption(
+        "--complete_compressed",
+        action="store",
+        default="./data/Wednesday_sorted.csv",
+        help="Location to Csvfile",
+    )
+    parser.addoption(
+        "--draws",
+        action="store",
+        default=100,
+        help=""
+    )
