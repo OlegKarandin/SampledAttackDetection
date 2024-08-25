@@ -101,7 +101,7 @@ class BasicSampler(TSSampler):
             cur_samples = self.timeseries_rdr[idx_firstsamp:idx_lastsamp]
             samples += cur_samples
 
-            _starting_time += window_skip
+            _starting_time += _stopping_time + window_skip
             _stopping_time = _starting_time + window_length
 
         return samples
